@@ -4,6 +4,7 @@ import { StateIndicator } from "@/components/StateIndicator";
 import { SpeedDisplay } from "@/components/SpeedDisplay";
 import { SignalQuality } from "@/components/SignalQuality";
 import { ResultCard } from "@/components/ResultCard";
+import { AccelerationChart } from "@/components/AccelerationChart";
 import { ControlButton } from "@/components/ControlButton";
 import { Button } from "@/components/ui/button";
 import { Download, Info, MapPin } from "lucide-react";
@@ -202,8 +203,14 @@ const Index = () => {
 
         {/* Result Card */}
         {result && state === "DONE" && (
-          <div className="w-full">
+          <div className="w-full space-y-4">
             <ResultCard result={result} />
+            {result.speedPoints && result.speedPoints.length > 0 && (
+              <AccelerationChart 
+                speedPoints={result.speedPoints} 
+                finalTime={result.timeSeconds}
+              />
+            )}
           </div>
         )}
 

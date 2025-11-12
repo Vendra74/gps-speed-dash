@@ -18,6 +18,11 @@ export interface LocationSample {
   isValid: boolean; // meets quality thresholds
 }
 
+export interface SpeedPoint {
+  time: number; // seconds since start
+  speed: number; // km/h
+}
+
 export interface MeasurementResult {
   timeSeconds: number; // Final time to reach target
   distanceMeters: number; // Estimated distance traveled
@@ -27,6 +32,7 @@ export interface MeasurementResult {
   sampleCount: number;
   startTime: number;
   endTime: number;
+  speedPoints: SpeedPoint[]; // Speed curve data
 }
 
 export interface MeasurementConfig {

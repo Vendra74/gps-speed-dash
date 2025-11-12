@@ -40,6 +40,7 @@ export function useMeasurement() {
   const lastValidSampleTimeRef = useRef<number>(0);
   const previousSampleRef = useRef<LocationSample | null>(null);
   const distanceAccumulatorRef = useRef<number>(0);
+  const speedPointsRef = useRef<Array<{ time: number; speed: number }>>([]);
   
   const qualityMetricsRef = useRef({ hAccSum: 0, sAccSum: 0, count: 0 });
 
@@ -122,6 +123,7 @@ export function useMeasurement() {
           startTimeRef.current = now;
           csvLogger.current.start(now);
           distanceAccumulatorRef.current = 0;
+          speedPointsRef.current = []; // Reset speed points
           console.log(`Timer started! Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
           toast({
             title: "Cronômetro iniciado!",
@@ -131,6 +133,15 @@ export function useMeasurement() {
         
         if (startTimeRef.current === 0) {
           console.log(`Waiting for speed > ${(DEFAULT_CONFIG.zeroThreshold + DEFAULT_CONFIG.hysteresis).toFixed(2)} m/s. Current: ${filteredSpeed.toFixed(2)} m/s`);
+        }
+
+        // Collect speed points for chart
+        if (startTimeRef.current > 0) {
+          const timeElapsed = (now - startTimeRef.current) / 1000; // seconds
+          speedPointsRef.current.push({
+            time: parseFloat(timeElapsed.toFixed(2)),
+            speed: parseFloat(mpsToKmh(filteredSpeed).toFixed(1)),
+          });
         }
 
         // Accumulate distance
@@ -173,6 +184,7 @@ export function useMeasurement() {
             sampleCount: qualityMetricsRef.current.count,
             startTime: startTimeRef.current,
             endTime: tHit,
+            speedPoints: speedPointsRef.current,
           };
 
           setResult(measurementResult);
@@ -324,6 +336,7 @@ export function useMeasurement() {
     zeroDetectedTimeRef.current = 0;
     previousSampleRef.current = null;
     distanceAccumulatorRef.current = 0;
+    speedPointsRef.current = [];
     qualityMetricsRef.current = { hAccSum: 0, sAccSum: 0, count: 0 };
     setSampleCount(0);
     setResult(null);
