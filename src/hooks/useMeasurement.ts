@@ -270,6 +270,18 @@ export function useMeasurement() {
     setTimeout(() => setState("WAIT_ZERO"), 500);
   }, [startWatching]);
 
+  // Manual zero confirmation
+  const confirmZero = useCallback(() => {
+    if (state === "WAIT_ZERO") {
+      setState("RUNNING");
+      toast({
+        title: "✅ Veículo parado confirmado",
+        description: "Acelere para iniciar a medição!",
+      });
+      Haptics.impact({ style: ImpactStyle.Medium });
+    }
+  }, [state]);
+
   // Reset measurement
   const reset = useCallback(async () => {
     await stopWatching();
@@ -315,6 +327,7 @@ export function useMeasurement() {
     signalQuality,
     arm,
     reset,
+    confirmZero,
     exportCsv,
   };
 }

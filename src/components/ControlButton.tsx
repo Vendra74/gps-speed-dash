@@ -1,15 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { MeasurementState } from "@/types/measurement";
 import { cn } from "@/lib/utils";
-import { Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw, CheckCircle } from "lucide-react";
 
 interface ControlButtonProps {
   state: MeasurementState;
   onArm: () => void;
   onReset: () => void;
+  onConfirmZero?: () => void;
 }
 
-export function ControlButton({ state, onArm, onReset }: ControlButtonProps) {
+export function ControlButton({ state, onArm, onReset, onConfirmZero }: ControlButtonProps) {
   if (state === "IDLE") {
     return (
       <Button
@@ -20,6 +21,28 @@ export function ControlButton({ state, onArm, onReset }: ControlButtonProps) {
         <Play className="w-8 h-8 mr-2" />
         ARMAR
       </Button>
+    );
+  }
+
+  if (state === "WAIT_ZERO") {
+    return (
+      <div className="space-y-3">
+        <div className={cn(
+          "w-full h-16 flex items-center justify-center text-xl font-bold rounded-lg border-2 border-dashed border-safety-yellow/50 text-safety-yellow"
+        )}>
+          AGUARDANDO VEÍCULO PARADO...
+        </div>
+        {onConfirmZero && (
+          <Button
+            onClick={onConfirmZero}
+            size="lg"
+            className="w-full h-16 text-xl font-bold bg-speed-green hover:bg-speed-green/90"
+          >
+            <CheckCircle className="w-6 h-6 mr-2" />
+            CONFIRMAR VEÍCULO PARADO
+          </Button>
+        )}
+      </div>
     );
   }
 

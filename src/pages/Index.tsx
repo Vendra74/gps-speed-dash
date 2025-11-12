@@ -27,6 +27,7 @@ const Index = () => {
     signalQuality,
     arm,
     reset,
+    confirmZero,
     exportCsv,
   } = useMeasurement();
 
@@ -105,7 +106,7 @@ const Index = () => {
 
         {/* Control Buttons */}
         <div className="w-full space-y-3">
-          <ControlButton state={state} onArm={arm} onReset={reset} />
+          <ControlButton state={state} onArm={arm} onReset={reset} onConfirmZero={confirmZero} />
 
           {state === "DONE" && (
             <Button
