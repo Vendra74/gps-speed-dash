@@ -84,15 +84,15 @@ export function useMeasurement() {
     // State machine transitions
     setState((currentState) => {
       if (currentState === "WAIT_ZERO") {
-        // Check if vehicle is at zero
-        if (sample.isValid && filteredSpeed < DEFAULT_CONFIG.zeroThreshold) {
+        // Check if vehicle is at zero (removed sample.isValid requirement for better detection)
+        if (filteredSpeed < DEFAULT_CONFIG.zeroThreshold) {
           if (zeroDetectedTimeRef.current === 0) {
             zeroDetectedTimeRef.current = now;
           } else if (now - zeroDetectedTimeRef.current >= DEFAULT_CONFIG.zeroHoldTime) {
             // Zero confirmed for required duration
             toast({
-              title: "Pronto para partir",
-              description: "Acelerando automaticamente ao sair do zero",
+              title: "✅ Veículo parado detectado",
+              description: "Acelere para iniciar a medição!",
             });
             Haptics.impact({ style: ImpactStyle.Medium });
             return "RUNNING"; // Next sample will trigger start
