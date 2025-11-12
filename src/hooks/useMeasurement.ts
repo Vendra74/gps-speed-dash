@@ -433,7 +433,7 @@ export function useMeasurement(debugMode: boolean = false) {
     }
   }, []);
 
-  // Debug mode: Auto-progress through states and simulate 101 km/h
+  // Debug mode: Auto-progress through states and simulate acceleration to 101 km/h
   useEffect(() => {
     if (!debugMode) {
       return;
@@ -451,37 +451,62 @@ export function useMeasurement(debugMode: boolean = false) {
       return () => clearTimeout(timer);
     }
 
-    // Simulate 101 km/h when RUNNING
+    // Simulate progressive acceleration when RUNNING
     if (state === "RUNNING") {
-      console.log("🧪 DEBUG MODE: Agendando simulação de 101 km/h em 5 segundos...");
+      console.log("🧪 DEBUG MODE: Iniciando simulação de aceleração progressiva...");
       
-      const timer = setTimeout(() => {
-        console.log("🧪 DEBUG MODE: Injetando velocidade simulada de 101 km/h (28.05 m/s)");
+      const timers: NodeJS.Timeout[] = [];
+      
+      // Inject samples at different speeds to simulate acceleration
+      const simulationSteps = [
+        { delay: 500, speed: 2.78 },   // 10 km/h
+        { delay: 1000, speed: 5.56 },  // 20 km/h
+        { delay: 1500, speed: 8.33 },  // 30 km/h
+        { delay: 2000, speed: 11.11 }, // 40 km/h
+        { delay: 2500, speed: 13.89 }, // 50 km/h
+        { delay: 3000, speed: 16.67 }, // 60 km/h
+        { delay: 3500, speed: 19.44 }, // 70 km/h
+        { delay: 4000, speed: 22.22 }, // 80 km/h
+        { delay: 4500, speed: 25.00 }, // 90 km/h
+        { delay: 5000, speed: 28.05 }, // 101 km/h - triggers completion
+      ];
+
+      simulationSteps.forEach((step) => {
+        const timer = setTimeout(() => {
+          console.log(`🧪 DEBUG MODE: Injetando velocidade simulada ${(step.speed * 3.6).toFixed(0)} km/h`);
+          
+          const simulatedPosition = {
+            coords: {
+              speed: step.speed,
+              accuracy: 5,
+              speedAccuracy: 0.5,
+              latitude: 0,
+              longitude: 0,
+              altitude: null,
+              altitudeAccuracy: null,
+              heading: null,
+            },
+            timestamp: Date.now(),
+          };
+
+          processSample(simulatedPosition);
+        }, step.delay);
         
-        // Create a simulated GPS position at 101 km/h
-        const simulatedPosition = {
-          coords: {
-            speed: 28.05, // 101 km/h in m/s
-            accuracy: 5,
-            speedAccuracy: 0.5,
-            latitude: 0,
-            longitude: 0,
-            altitude: null,
-            altitudeAccuracy: null,
-            heading: null,
-          },
-          timestamp: Date.now(),
-        };
+        timers.push(timer);
+      });
 
+      // Show toast at the end
+      const finalTimer = setTimeout(() => {
         toast({
-          title: "🧪 DEBUG: Simulando 101 km/h",
-          description: "Teste de finalização da medição",
+          title: "🧪 DEBUG: Simulação completa",
+          description: "Aceleração de 0-100 km/h simulada",
         });
+      }, 5100);
+      timers.push(finalTimer);
 
-        processSample(simulatedPosition);
-      }, 5000);
-
-      return () => clearTimeout(timer);
+      return () => {
+        timers.forEach(timer => clearTimeout(timer));
+      };
     }
   }, [debugMode, state, confirmZero, processSample]);
 
