@@ -449,21 +449,40 @@ export function useMeasurement(debugMode: boolean = false) {
 
     console.log(`🧪 DEBUG MODE: Estado atual = ${state}`);
 
-    // Auto-confirm zero when in WAIT_ZERO
-    if (state === "WAIT_ZERO") {
-      console.log("🧪 DEBUG MODE: Detectado WAIT_ZERO - Auto-confirmando veículo parado em 500ms...");
+    // Start debug flow from IDLE
+    if (state === "IDLE") {
+      console.log("🧪 DEBUG MODE: Iniciando fluxo de debug...");
+      
+      // Reset everything
+      csvLogger.current.reset();
+      speedFilter.current.reset();
+      startTimeRef.current = 0;
+      zeroDetectedTimeRef.current = 0;
+      previousSampleRef.current = null;
+      distanceAccumulatorRef.current = 0;
+      speedPointsRef.current = [];
+      qualityMetricsRef.current = { hAccSum: 0, sAccSum: 0, count: 0 };
+      setSampleCount(0);
+      setResult(null);
+
+      // Go directly to RUNNING state for debug
       const timer = setTimeout(() => {
-        console.log("🧪 DEBUG MODE: Chamando confirmZero() agora");
-        confirmZero();
+        console.log("🧪 DEBUG MODE: Mudando para estado RUNNING");
+        setState("RUNNING");
       }, 500);
+      
       return () => clearTimeout(timer);
     }
 
     // Simulate progressive acceleration when RUNNING
     if (state === "RUNNING") {
-      console.log("🧪 DEBUG MODE: Iniciando simulação de aceleração progressiva...");
+      console.log("🧪 DEBUG MODE: Estado RUNNING detectado - Iniciando simulação de aceleração progressiva...");
       
       const timers: NodeJS.Timeout[] = [];
+      
+      // First, set startTimeRef to trigger timer
+      startTimeRef.current = Date.now();
+      console.log("🧪 DEBUG MODE: Timer iniciado em", startTimeRef.current);
       
       // Inject samples at different speeds to simulate acceleration (faster intervals)
       const simulationSteps = [
@@ -517,7 +536,7 @@ export function useMeasurement(debugMode: boolean = false) {
         timers.forEach(timer => clearTimeout(timer));
       };
     }
-  }, [debugMode, state, confirmZero, processSample]);
+  }, [debugMode, state, processSample]);
 
   // Cleanup on unmount
   useEffect(() => {

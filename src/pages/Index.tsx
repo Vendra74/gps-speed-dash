@@ -176,19 +176,10 @@ const Index = () => {
               setDebugMode(newDebugMode);
               
               if (newDebugMode) {
-                // Auto-arm when activating debug mode
-                if (state === "IDLE") {
-                  arm();
-                  toast({
-                    title: "🧪 Modo Debug Ativado",
-                    description: "Sistema armado automaticamente. Aguarde simulação...",
-                  });
-                } else {
-                  toast({
-                    title: "🧪 Modo Debug Ativado",
-                    description: "Velocidade simulada em 101 km/h após 5s no estado RUNNING",
-                  });
-                }
+                toast({
+                  title: "🧪 Modo Debug Ativado",
+                  description: "Iniciando simulação automática...",
+                });
               } else {
                 toast({
                   title: "🔧 Modo Debug Desativado",
