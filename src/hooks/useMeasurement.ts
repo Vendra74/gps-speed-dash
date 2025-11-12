@@ -433,43 +433,57 @@ export function useMeasurement(debugMode: boolean = false) {
     }
   }, []);
 
-  // Debug mode: Simulate 101 km/h after 5 seconds
+  // Debug mode: Auto-progress through states and simulate 101 km/h
   useEffect(() => {
-    if (!debugMode || state !== "RUNNING") {
+    if (!debugMode) {
       return;
     }
 
-    console.log("🧪 DEBUG MODE: Agendando simulação de 101 km/h em 5 segundos após começar a medir...");
-    
-    // Wait a bit to ensure measurement has started, then simulate
-    const timer = setTimeout(() => {
-      console.log("🧪 DEBUG MODE: Injetando velocidade simulada de 101 km/h (28.05 m/s)");
+    console.log(`🧪 DEBUG MODE: Estado atual = ${state}`);
+
+    // Auto-confirm zero when in WAIT_ZERO
+    if (state === "WAIT_ZERO") {
+      console.log("🧪 DEBUG MODE: Auto-confirmando veículo parado em 1 segundo...");
+      const timer = setTimeout(() => {
+        console.log("🧪 DEBUG MODE: Confirmando zero automaticamente");
+        confirmZero();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    // Simulate 101 km/h when RUNNING
+    if (state === "RUNNING") {
+      console.log("🧪 DEBUG MODE: Agendando simulação de 101 km/h em 5 segundos...");
       
-      // Create a simulated GPS position at 101 km/h
-      const simulatedPosition = {
-        coords: {
-          speed: 28.05, // 101 km/h in m/s
-          accuracy: 5,
-          speedAccuracy: 0.5,
-          latitude: 0,
-          longitude: 0,
-          altitude: null,
-          altitudeAccuracy: null,
-          heading: null,
-        },
-        timestamp: Date.now(),
-      };
+      const timer = setTimeout(() => {
+        console.log("🧪 DEBUG MODE: Injetando velocidade simulada de 101 km/h (28.05 m/s)");
+        
+        // Create a simulated GPS position at 101 km/h
+        const simulatedPosition = {
+          coords: {
+            speed: 28.05, // 101 km/h in m/s
+            accuracy: 5,
+            speedAccuracy: 0.5,
+            latitude: 0,
+            longitude: 0,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+          },
+          timestamp: Date.now(),
+        };
 
-      toast({
-        title: "🧪 DEBUG: Simulando 101 km/h",
-        description: "Teste de finalização da medição",
-      });
+        toast({
+          title: "🧪 DEBUG: Simulando 101 km/h",
+          description: "Teste de finalização da medição",
+        });
 
-      processSample(simulatedPosition);
-    }, 5000);
+        processSample(simulatedPosition);
+      }, 5000);
 
-    return () => clearTimeout(timer);
-  }, [debugMode, state, processSample]);
+      return () => clearTimeout(timer);
+    }
+  }, [debugMode, state, confirmZero, processSample]);
 
   // Cleanup on unmount
   useEffect(() => {

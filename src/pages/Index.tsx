@@ -172,13 +172,29 @@ const Index = () => {
             size="icon" 
             className={debugMode ? "text-primary-foreground" : "text-muted-foreground"}
             onClick={() => {
-              setDebugMode(!debugMode);
-              toast({
-                title: debugMode ? "🔧 Modo Debug Desativado" : "🧪 Modo Debug Ativado",
-                description: debugMode 
-                  ? "Medição normal retomada" 
-                  : "Velocidade simulada em 101 km/h após 5s",
-              });
+              const newDebugMode = !debugMode;
+              setDebugMode(newDebugMode);
+              
+              if (newDebugMode) {
+                // Auto-arm when activating debug mode
+                if (state === "IDLE") {
+                  arm();
+                  toast({
+                    title: "🧪 Modo Debug Ativado",
+                    description: "Sistema armado automaticamente. Aguarde simulação...",
+                  });
+                } else {
+                  toast({
+                    title: "🧪 Modo Debug Ativado",
+                    description: "Velocidade simulada em 101 km/h após 5s no estado RUNNING",
+                  });
+                }
+              } else {
+                toast({
+                  title: "🔧 Modo Debug Desativado",
+                  description: "Medição normal retomada",
+                });
+              }
             }}
           >
             <Bug className="w-5 h-5" />
