@@ -153,7 +153,11 @@ export function useMeasurement(debugMode: boolean = false) {
         // Check for target crossing
         // Log detailed info for debugging
         if (previousSampleRef.current) {
-          console.log(`🔍 Checking target: prev=${previousSampleRef.current.speedFiltered.toFixed(2)} m/s (${mpsToKmh(previousSampleRef.current.speedFiltered).toFixed(1)} km/h), current=${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h), target=${DEFAULT_CONFIG.targetSpeedMps.toFixed(2)} m/s`);
+          const prevSpeedKmh = mpsToKmh(previousSampleRef.current.speedFiltered).toFixed(1);
+          const currSpeedKmh = mpsToKmh(filteredSpeed).toFixed(1);
+          const targetKmh = mpsToKmh(DEFAULT_CONFIG.targetSpeedMps).toFixed(1);
+          console.log(`🔍 Checking target: prev=${previousSampleRef.current.speedFiltered.toFixed(2)} m/s (${prevSpeedKmh} km/h), current=${filteredSpeed.toFixed(2)} m/s (${currSpeedKmh} km/h), target=${DEFAULT_CONFIG.targetSpeedMps.toFixed(2)} m/s (${targetKmh} km/h)`);
+          console.log(`🔍 Condições: prev < target? ${previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps}, current >= target? ${filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps}`);
         }
         
         if (
@@ -477,7 +481,7 @@ export function useMeasurement(debugMode: boolean = false) {
 
       simulationSteps.forEach((step) => {
         const timer = setTimeout(() => {
-          console.log(`🧪 DEBUG MODE: Injetando velocidade simulada ${(step.speed * 3.6).toFixed(0)} km/h`);
+          console.log(`🧪 DEBUG MODE: Injetando velocidade simulada ${(step.speed * 3.6).toFixed(0)} km/h (${step.speed.toFixed(2)} m/s)`);
           
           const simulatedPosition = {
             coords: {
@@ -493,6 +497,7 @@ export function useMeasurement(debugMode: boolean = false) {
             timestamp: Date.now(),
           };
 
+          console.log(`🧪 Chamando processSample com velocidade ${step.speed.toFixed(2)} m/s`);
           processSample(simulatedPosition);
         }, step.delay);
         
