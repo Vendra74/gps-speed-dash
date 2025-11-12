@@ -46,6 +46,8 @@ export function useMeasurement() {
     const now = Date.now();
     const rawSpeed = position.coords.speed ?? 0;
     const filteredSpeed = speedFilter.current.filter(Math.max(0, rawSpeed));
+    
+    console.log(`🔄 processSample - Estado: ${state}, Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
 
     const sample: LocationSample = {
       timestamp: now,
@@ -206,11 +208,18 @@ export function useMeasurement() {
 
   // Start GPS watching
   const startWatching = useCallback(async () => {
+    console.log("🚀 startWatching() chamado");
     try {
       const permission = await Geolocation.checkPermissions();
+      console.log("📍 GPS permission status:", permission.location);
+      
       if (permission.location !== "granted") {
+        console.log("⚠️ Solicitando permissão GPS...");
         const request = await Geolocation.requestPermissions();
+        console.log("📍 Permissão GPS após request:", request.location);
+        
         if (request.location !== "granted") {
+          console.log("❌ Permissão GPS negada");
           toast({
             title: "Permissão necessária",
             description: "Acesso à localização é necessário para medição GPS",
@@ -220,6 +229,7 @@ export function useMeasurement() {
         }
       }
 
+      console.log("✅ Iniciando GPS watch com alta precisão...");
       watchId.current = await Geolocation.watchPosition(
         {
           enableHighAccuracy: true,
@@ -227,13 +237,17 @@ export function useMeasurement() {
           maximumAge: 0,
         },
         (position) => {
+          console.log("📡 GPS sample recebido:", {
+            speed: position?.coords?.speed,
+            accuracy: position?.coords?.accuracy,
+            timestamp: new Date().toISOString()
+          });
           if (position) processSample(position);
         }
       );
+      console.log("✅ GPS watch iniciado com ID:", watchId.current);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error("Error starting GPS:", error);
-      }
+      console.error("❌ Error starting GPS:", error);
       toast({
         title: "Erro GPS",
         description: "Não foi possível iniciar o GPS",
@@ -252,6 +266,7 @@ export function useMeasurement() {
 
   // Arm measurement
   const arm = useCallback(async () => {
+    console.log("🎯 ARM iniciado");
     csvLogger.current.reset();
     speedFilter.current.reset();
     startTimeRef.current = 0;
@@ -263,6 +278,8 @@ export function useMeasurement() {
     setResult(null);
 
     setState("ARMED");
+    console.log("📊 Estado mudado para ARMED");
+    
     await startWatching();
     
     Haptics.impact({ style: ImpactStyle.Medium });
@@ -272,11 +289,15 @@ export function useMeasurement() {
     });
 
     // Transition to WAIT_ZERO
-    setTimeout(() => setState("WAIT_ZERO"), 500);
+    setTimeout(() => {
+      console.log("📊 Estado mudando para WAIT_ZERO");
+      setState("WAIT_ZERO");
+    }, 500);
   }, [startWatching]);
 
   // Manual zero confirmation
   const confirmZero = useCallback(() => {
+    console.log("🚦 confirmZero chamado, estado atual:", state);
     if (state === "WAIT_ZERO") {
       // Reset filter to ensure clean start
       speedFilter.current.reset();
@@ -284,14 +305,17 @@ export function useMeasurement() {
       previousSampleRef.current = null;
       distanceAccumulatorRef.current = 0;
       
+      console.log("✅ Manual zero confirmed - filter reset, ready to measure");
       setState("RUNNING");
+      console.log("📊 Estado mudado para RUNNING");
+      
       toast({
         title: "✅ Veículo parado confirmado",
         description: "Acelere para iniciar a medição!",
       });
       Haptics.impact({ style: ImpactStyle.Medium });
-      
-      console.log("Manual zero confirmed - filter reset, ready to measure");
+    } else {
+      console.log("⚠️ confirmZero ignorado - estado não é WAIT_ZERO");
     }
   }, [state]);
 
