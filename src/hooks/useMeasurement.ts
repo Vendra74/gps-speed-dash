@@ -1,11 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Geolocation } from "@capacitor/geolocation";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { Capacitor } from "@capacitor/core";
 import { MeasurementState, LocationSample, MeasurementResult, DEFAULT_CONFIG } from "@/types/measurement";
 import { SpeedFilter } from "@/utils/filters";
 import { CsvLogger } from "@/utils/csvLogger";
 import { interpolateTargetCrossing, mpsToKmh } from "@/utils/interpolation";
 import { toast } from "@/hooks/use-toast";
+
+// Helper to trigger haptics safely
+const triggerHaptics = async (style: ImpactStyle) => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Haptics.impact({ style });
+    } catch (error) {
+      console.log("Haptics not available:", error);
+    }
+  }
+};
 
 /**
  * Core hook for 0-100 km/h measurement logic
@@ -20,7 +32,8 @@ export function useMeasurement() {
 
   const speedFilter = useRef(new SpeedFilter(DEFAULT_CONFIG.medianWindowSize, DEFAULT_CONFIG.emaAlpha));
   const csvLogger = useRef(new CsvLogger());
-  const watchId = useRef<string | null>(null);
+  const watchId = useRef<string | number | null>(null); // string for Capacitor, number for browser
+  const isNative = useRef(Capacitor.isNativePlatform());
   
   const startTimeRef = useRef<number>(0);
   const zeroDetectedTimeRef = useRef<number>(0);
@@ -96,7 +109,7 @@ export function useMeasurement() {
               title: "✅ Veículo parado detectado",
               description: "Acelere para iniciar a medição!",
             });
-            Haptics.impact({ style: ImpactStyle.Medium });
+            triggerHaptics(ImpactStyle.Medium);
             return "RUNNING"; // Next sample will trigger start
           }
         } else {
@@ -165,7 +178,7 @@ export function useMeasurement() {
           setResult(measurementResult);
 
           // Feedback
-          Haptics.impact({ style: ImpactStyle.Heavy });
+          triggerHaptics(ImpactStyle.Heavy);
           toast({
             title: "🏁 Medição concluída!",
             description: `100 km/h em ${finalTime.toFixed(2)} segundos`,
@@ -195,7 +208,7 @@ export function useMeasurement() {
             description: "Perda de sinal GPS durante medição",
             variant: "destructive",
           });
-          Haptics.impact({ style: ImpactStyle.Heavy });
+          triggerHaptics(ImpactStyle.Heavy);
           return "DONE";
         }
       }
@@ -210,42 +223,76 @@ export function useMeasurement() {
   const startWatching = useCallback(async () => {
     console.log("🚀 startWatching() chamado");
     try {
-      const permission = await Geolocation.checkPermissions();
-      console.log("📍 GPS permission status:", permission.location);
-      
-      if (permission.location !== "granted") {
-        console.log("⚠️ Solicitando permissão GPS...");
-        const request = await Geolocation.requestPermissions();
-        console.log("📍 Permissão GPS após request:", request.location);
+      if (isNative.current) {
+        // Use Capacitor Geolocation for native apps
+        const permission = await Geolocation.checkPermissions();
+        console.log("📍 GPS permission status:", permission.location);
         
-        if (request.location !== "granted") {
-          console.log("❌ Permissão GPS negada");
-          toast({
-            title: "Permissão necessária",
-            description: "Acesso à localização é necessário para medição GPS",
-            variant: "destructive",
-          });
-          return;
+        if (permission.location !== "granted") {
+          console.log("⚠️ Solicitando permissão GPS...");
+          const request = await Geolocation.requestPermissions();
+          console.log("📍 Permissão GPS após request:", request.location);
+          
+          if (request.location !== "granted") {
+            console.log("❌ Permissão GPS negada");
+            toast({
+              title: "Permissão necessária",
+              description: "Acesso à localização é necessário para medição GPS",
+              variant: "destructive",
+            });
+            return;
+          }
         }
-      }
 
-      console.log("✅ Iniciando GPS watch com alta precisão...");
-      watchId.current = await Geolocation.watchPosition(
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
-        },
-        (position) => {
-          console.log("📡 GPS sample recebido:", {
-            speed: position?.coords?.speed,
-            accuracy: position?.coords?.accuracy,
-            timestamp: new Date().toISOString()
-          });
-          if (position) processSample(position);
+        console.log("✅ Iniciando GPS watch (Capacitor) com alta precisão...");
+        watchId.current = await Geolocation.watchPosition(
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          },
+          (position) => {
+            console.log("📡 GPS sample recebido:", {
+              speed: position?.coords?.speed,
+              accuracy: position?.coords?.accuracy,
+              timestamp: new Date().toISOString()
+            });
+            if (position) processSample(position);
+          }
+        );
+        console.log("✅ GPS watch iniciado com ID:", watchId.current);
+      } else {
+        // Use browser Geolocation API
+        if (!navigator.geolocation) {
+          throw new Error("Geolocation not supported by browser");
         }
-      );
-      console.log("✅ GPS watch iniciado com ID:", watchId.current);
+
+        console.log("✅ Iniciando GPS watch (Browser) com alta precisão...");
+        watchId.current = navigator.geolocation.watchPosition(
+          (position) => {
+            console.log("📡 GPS sample recebido:", {
+              speed: position?.coords?.speed,
+              accuracy: position?.coords?.accuracy,
+              timestamp: new Date().toISOString()
+            });
+            processSample(position);
+          },
+          (error) => {
+            console.error("❌ Browser GPS error:", error);
+            toast({
+              title: "Erro GPS",
+              description: error.message || "Não foi possível acessar o GPS",
+              variant: "destructive",
+            });
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          }
+        );
+        console.log("✅ GPS watch iniciado (Browser) com ID:", watchId.current);
+      }
     } catch (error) {
       console.error("❌ Error starting GPS:", error);
       toast({
@@ -258,8 +305,12 @@ export function useMeasurement() {
 
   // Stop GPS watching
   const stopWatching = useCallback(async () => {
-    if (watchId.current) {
-      await Geolocation.clearWatch({ id: watchId.current });
+    if (watchId.current !== null) {
+      if (isNative.current) {
+        await Geolocation.clearWatch({ id: watchId.current as string });
+      } else {
+        navigator.geolocation.clearWatch(watchId.current as number);
+      }
       watchId.current = null;
     }
   }, []);
@@ -282,7 +333,7 @@ export function useMeasurement() {
     
     await startWatching();
     
-    Haptics.impact({ style: ImpactStyle.Medium });
+    triggerHaptics(ImpactStyle.Medium);
     toast({
       title: "Sistema armado",
       description: "Aguardando veículo parado...",
@@ -313,7 +364,7 @@ export function useMeasurement() {
         title: "✅ Veículo parado confirmado",
         description: "Acelere para iniciar a medição!",
       });
-      Haptics.impact({ style: ImpactStyle.Medium });
+      triggerHaptics(ImpactStyle.Medium);
     } else {
       console.log("⚠️ confirmZero ignorado - estado não é WAIT_ZERO");
     }
@@ -327,7 +378,7 @@ export function useMeasurement() {
     setCurrentSpeedKmh(0);
     setSampleCount(0);
     csvLogger.current.reset();
-    Haptics.impact({ style: ImpactStyle.Medium });
+    triggerHaptics(ImpactStyle.Medium);
     toast({
       title: "Medição cancelada",
       description: "Sistema retornando ao estado inicial",
@@ -343,7 +394,7 @@ export function useMeasurement() {
     setSampleCount(0);
     setResult(null);
     csvLogger.current.reset();
-    Haptics.impact({ style: ImpactStyle.Light });
+    triggerHaptics(ImpactStyle.Light);
   }, [stopWatching]);
 
   // Export CSV
