@@ -173,7 +173,9 @@ export function useMeasurement() {
             utterance.lang = "pt-BR";
             speechSynthesis.speak(utterance);
           } catch (error) {
-            console.warn("Speech synthesis not available:", error);
+            if (import.meta.env.DEV) {
+              console.warn("Speech synthesis not available:", error);
+            }
           }
 
           return "DONE";
@@ -224,7 +226,9 @@ export function useMeasurement() {
         }
       );
     } catch (error) {
-      console.error("Error starting GPS:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error starting GPS:", error);
+      }
       toast({
         title: "Erro GPS",
         description: "Não foi possível iniciar o GPS",
