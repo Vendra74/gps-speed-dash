@@ -107,10 +107,15 @@ export function useMeasurement() {
           startTimeRef.current = now;
           csvLogger.current.start(now);
           distanceAccumulatorRef.current = 0;
+          console.log(`Timer started! Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
           toast({
             title: "Cronômetro iniciado!",
             description: "Medição em andamento...",
           });
+        }
+        
+        if (startTimeRef.current === 0) {
+          console.log(`Waiting for speed > ${(DEFAULT_CONFIG.zeroThreshold + DEFAULT_CONFIG.hysteresis).toFixed(2)} m/s. Current: ${filteredSpeed.toFixed(2)} m/s`);
         }
 
         // Accumulate distance
@@ -273,12 +278,20 @@ export function useMeasurement() {
   // Manual zero confirmation
   const confirmZero = useCallback(() => {
     if (state === "WAIT_ZERO") {
+      // Reset filter to ensure clean start
+      speedFilter.current.reset();
+      startTimeRef.current = 0;
+      previousSampleRef.current = null;
+      distanceAccumulatorRef.current = 0;
+      
       setState("RUNNING");
       toast({
         title: "✅ Veículo parado confirmado",
         description: "Acelere para iniciar a medição!",
       });
       Haptics.impact({ style: ImpactStyle.Medium });
+      
+      console.log("Manual zero confirmed - filter reset, ready to measure");
     }
   }, [state]);
 
