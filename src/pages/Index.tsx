@@ -2,6 +2,7 @@ import { useMeasurement } from "@/hooks/useMeasurement";
 import { SafetyWarning } from "@/components/SafetyWarning";
 import { StateIndicator } from "@/components/StateIndicator";
 import { SpeedDisplay } from "@/components/SpeedDisplay";
+import { TimeDisplay } from "@/components/TimeDisplay";
 import { SignalQuality } from "@/components/SignalQuality";
 import { ResultCard } from "@/components/ResultCard";
 import { AccelerationChart } from "@/components/AccelerationChart";
@@ -39,6 +40,7 @@ const Index = () => {
 
   const [showInfo, setShowInfo] = useState(false);
   const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "prompt-with-rationale">("prompt");
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   // Check location permission on mount
   useEffect(() => {
@@ -62,6 +64,18 @@ const Index = () => {
     
     checkPermission();
   }, []);
+
+  // Update elapsed time when running
+  useEffect(() => {
+    if (state === "RUNNING") {
+      const interval = setInterval(() => {
+        setElapsedTime((prev) => prev + 0.05);
+      }, 50);
+      return () => clearInterval(interval);
+    } else {
+      setElapsedTime(0);
+    }
+  }, [state]);
 
   const requestLocationPermission = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -195,6 +209,14 @@ const Index = () => {
         <div className="w-full">
           <SpeedDisplay speedMps={currentSpeed} speedKmh={currentSpeedKmh} state={state} />
         </div>
+
+        {/* Time Display - Show when RUNNING or DONE */}
+        {(state === "RUNNING" || state === "DONE") && (
+          <TimeDisplay 
+            timeSeconds={state === "DONE" && result ? result.timeSeconds : elapsedTime} 
+            isRunning={state === "RUNNING"}
+          />
+        )}
 
         {/* Signal Quality */}
         {(state === "ARMED" || state === "WAIT_ZERO" || state === "RUNNING") && (
