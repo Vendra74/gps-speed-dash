@@ -3,6 +3,10 @@ import App from "./App.tsx";
 import "./index.css";
 import { initSentry } from "./lib/sentry";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import eruda from "eruda";
+
+// Initialize mobile debugging console
+eruda.init();
 
 // Initialize Sentry for error monitoring in production
 initSentry();
