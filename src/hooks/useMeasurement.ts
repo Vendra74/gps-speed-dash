@@ -151,12 +151,18 @@ export function useMeasurement() {
         }
 
         // Check for target crossing
+        // Log detailed info for debugging
+        if (previousSampleRef.current) {
+          console.log(`🔍 Checking target: prev=${previousSampleRef.current.speedFiltered.toFixed(2)} m/s (${mpsToKmh(previousSampleRef.current.speedFiltered).toFixed(1)} km/h), current=${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h), target=${DEFAULT_CONFIG.targetSpeedMps.toFixed(2)} m/s`);
+        }
+        
         if (
-          sample.isValid &&
           previousSampleRef.current &&
           previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps &&
           filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps
         ) {
+          console.log(`🎯 TARGET CRUZADO! Detectado em ${mpsToKmh(filteredSpeed).toFixed(1)} km/h`);
+          console.log(`📊 isValid: ${sample.isValid}, hAcc: ${sample.horizontalAccuracy.toFixed(1)}m, sAcc: ${sample.speedAccuracy?.toFixed(2) || 'N/A'}m/s`);
           // Interpolate exact crossing time
           const tHit = interpolateTargetCrossing(
             previousSampleRef.current.timestamp,
