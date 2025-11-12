@@ -319,6 +319,21 @@ export function useMeasurement() {
     }
   }, [state]);
 
+  // Cancel measurement
+  const cancel = useCallback(async () => {
+    await stopWatching();
+    setState("IDLE");
+    setCurrentSpeed(0);
+    setCurrentSpeedKmh(0);
+    setSampleCount(0);
+    csvLogger.current.reset();
+    Haptics.impact({ style: ImpactStyle.Medium });
+    toast({
+      title: "Medição cancelada",
+      description: "Sistema retornando ao estado inicial",
+    });
+  }, [stopWatching]);
+
   // Reset measurement
   const reset = useCallback(async () => {
     await stopWatching();
@@ -364,6 +379,7 @@ export function useMeasurement() {
     signalQuality,
     arm,
     reset,
+    cancel,
     confirmZero,
     exportCsv,
   };

@@ -1,16 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { MeasurementState } from "@/types/measurement";
 import { cn } from "@/lib/utils";
-import { Play, RotateCcw, CheckCircle } from "lucide-react";
+import { Play, RotateCcw, CheckCircle, X } from "lucide-react";
 
 interface ControlButtonProps {
   state: MeasurementState;
   onArm: () => void;
   onReset: () => void;
+  onCancel: () => void;
   onConfirmZero?: () => void;
 }
 
-export function ControlButton({ state, onArm, onReset, onConfirmZero }: ControlButtonProps) {
+export function ControlButton({ state, onArm, onReset, onCancel, onConfirmZero }: ControlButtonProps) {
   if (state === "IDLE") {
     return (
       <Button
@@ -42,6 +43,15 @@ export function ControlButton({ state, onArm, onReset, onConfirmZero }: ControlB
             CONFIRMAR VEÍCULO PARADO
           </Button>
         )}
+        <Button
+          onClick={onCancel}
+          size="lg"
+          variant="destructive"
+          className="w-full"
+        >
+          <X className="w-5 h-5 mr-2" />
+          CANCELAR
+        </Button>
       </div>
     );
   }
@@ -61,11 +71,22 @@ export function ControlButton({ state, onArm, onReset, onConfirmZero }: ControlB
   }
 
   return (
-    <div className={cn(
-      "w-full h-20 flex items-center justify-center text-2xl font-bold rounded-lg border-2 border-dashed",
-      state === "RUNNING" ? "border-speed-green/50 text-speed-green" : "border-safety-yellow/50 text-safety-yellow"
-    )}>
-      {state === "RUNNING" ? "MEDINDO..." : "PREPARANDO..."}
+    <div className="space-y-3">
+      <div className={cn(
+        "w-full h-20 flex items-center justify-center text-2xl font-bold rounded-lg border-2 border-dashed",
+        state === "RUNNING" ? "border-speed-green/50 text-speed-green" : "border-safety-yellow/50 text-safety-yellow"
+      )}>
+        {state === "RUNNING" ? "MEDINDO..." : "PREPARANDO..."}
+      </div>
+      <Button
+        onClick={onCancel}
+        size="lg"
+        variant="destructive"
+        className="w-full"
+      >
+        <X className="w-5 h-5 mr-2" />
+        CANCELAR
+      </Button>
     </div>
   );
 }
