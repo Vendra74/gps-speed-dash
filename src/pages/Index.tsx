@@ -6,8 +6,12 @@ import { SignalQuality } from "@/components/SignalQuality";
 import { ResultCard } from "@/components/ResultCard";
 import { ControlButton } from "@/components/ControlButton";
 import { Button } from "@/components/ui/button";
-import { Download, Info } from "lucide-react";
-import { useState } from "react";
+import { Download, Info, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Geolocation } from "@capacitor/geolocation";
+import { Capacitor } from "@capacitor/core";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +37,79 @@ const Index = () => {
   } = useMeasurement();
 
   const [showInfo, setShowInfo] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "prompt-with-rationale">("prompt");
+
+  // Check location permission on mount
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const permission = await Geolocation.checkPermissions();
+          setLocationPermission(permission.location);
+        } catch (error) {
+          console.error("Error checking location permission:", error);
+        }
+      } else {
+        // Browser: check if geolocation is available
+        if (navigator.geolocation) {
+          setLocationPermission("prompt");
+        } else {
+          setLocationPermission("denied");
+        }
+      }
+    };
+    
+    checkPermission();
+  }, []);
+
+  const requestLocationPermission = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const permission = await Geolocation.requestPermissions();
+        setLocationPermission(permission.location);
+        
+        if (permission.location === "granted") {
+          toast({
+            title: "✅ Permissão concedida",
+            description: "O app pode acessar sua localização durante o uso.",
+          });
+        } else {
+          toast({
+            title: "⚠️ Permissão negada",
+            description: "O app precisa de acesso à localização para funcionar.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error requesting location permission:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível solicitar permissão de localização.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Browser: trigger geolocation request
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          setLocationPermission("granted");
+          toast({
+            title: "✅ Permissão concedida",
+            description: "O app pode acessar sua localização.",
+          });
+        },
+        (error) => {
+          setLocationPermission("denied");
+          toast({
+            title: "⚠️ Permissão negada",
+            description: error.message || "Não foi possível acessar a localização.",
+            variant: "destructive",
+          });
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 flex flex-col">
@@ -77,6 +154,31 @@ const Index = () => {
         </div>
         <p className="text-sm text-muted-foreground">Cronometragem GPS de alta precisão</p>
       </header>
+
+      {/* Location Permission Alert */}
+      {(locationPermission === "prompt" || locationPermission === "prompt-with-rationale" || locationPermission === "denied") && (
+        <div className="mb-6">
+          <Alert className="border-primary/50 bg-primary/5">
+            <MapPin className="h-5 w-5 text-primary" />
+            <AlertTitle className="text-foreground">Permissão de Localização Necessária</AlertTitle>
+            <AlertDescription className="text-muted-foreground">
+              {locationPermission === "denied" 
+                ? "O acesso à localização foi negado. Habilite nas configurações do dispositivo para usar o app."
+                : "Este app precisa acessar sua localização durante o uso para medir a velocidade com GPS."}
+              {(locationPermission === "prompt" || locationPermission === "prompt-with-rationale") && (
+                <Button 
+                  onClick={requestLocationPermission}
+                  className="mt-3 w-full"
+                  size="sm"
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Permitir Localização
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Safety Warning */}
       <div className="mb-6">
