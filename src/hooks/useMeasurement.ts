@@ -457,18 +457,18 @@ export function useMeasurement(debugMode: boolean = false) {
       
       const timers: NodeJS.Timeout[] = [];
       
-      // Inject samples at different speeds to simulate acceleration
+      // Inject samples at different speeds to simulate acceleration (faster intervals)
       const simulationSteps = [
-        { delay: 500, speed: 2.78 },   // 10 km/h
-        { delay: 1000, speed: 5.56 },  // 20 km/h
-        { delay: 1500, speed: 8.33 },  // 30 km/h
-        { delay: 2000, speed: 11.11 }, // 40 km/h
-        { delay: 2500, speed: 13.89 }, // 50 km/h
-        { delay: 3000, speed: 16.67 }, // 60 km/h
-        { delay: 3500, speed: 19.44 }, // 70 km/h
-        { delay: 4000, speed: 22.22 }, // 80 km/h
-        { delay: 4500, speed: 25.00 }, // 90 km/h
-        { delay: 5000, speed: 28.05 }, // 101 km/h - triggers completion
+        { delay: 200, speed: 2.78 },   // 10 km/h
+        { delay: 400, speed: 5.56 },   // 20 km/h
+        { delay: 600, speed: 8.33 },   // 30 km/h
+        { delay: 800, speed: 11.11 },  // 40 km/h
+        { delay: 1000, speed: 13.89 }, // 50 km/h
+        { delay: 1200, speed: 16.67 }, // 60 km/h
+        { delay: 1400, speed: 19.44 }, // 70 km/h
+        { delay: 1600, speed: 22.22 }, // 80 km/h
+        { delay: 1800, speed: 25.00 }, // 90 km/h
+        { delay: 2000, speed: 28.05 }, // 101 km/h - triggers completion
       ];
 
       simulationSteps.forEach((step) => {
@@ -501,7 +501,7 @@ export function useMeasurement(debugMode: boolean = false) {
           title: "🧪 DEBUG: Simulação completa",
           description: "Aceleração de 0-100 km/h simulada",
         });
-      }, 5100);
+      }, 2200);
       timers.push(finalTimer);
 
       return () => {
