@@ -22,7 +22,7 @@ const triggerHaptics = async (style: ImpactStyle) => {
 /**
  * Core hook for 0-100 km/h measurement logic
  */
-export function useMeasurement() {
+export function useMeasurement(debugMode: boolean = false) {
   const [state, setState] = useState<MeasurementState>("IDLE");
   const [currentSpeed, setCurrentSpeed] = useState(0); // filtered speed in m/s
   const [currentSpeedKmh, setCurrentSpeedKmh] = useState(0);
@@ -43,9 +43,6 @@ export function useMeasurement() {
   const speedPointsRef = useRef<Array<{ time: number; speed: number }>>([]);
   
   const qualityMetricsRef = useRef({ hAccSum: 0, sAccSum: 0, count: 0 });
-
-  // Debug mode detection
-  const isDebugMode = useRef(window.location.search.includes('debug=true'));
 
   // Check if sample meets quality thresholds
   const isSampleValid = useCallback((sample: Partial<LocationSample>): boolean => {
@@ -438,7 +435,7 @@ export function useMeasurement() {
 
   // Debug mode: Simulate 101 km/h after 5 seconds
   useEffect(() => {
-    if (!isDebugMode.current || state !== "RUNNING" || startTimeRef.current === 0) {
+    if (!debugMode || state !== "RUNNING" || startTimeRef.current === 0) {
       return;
     }
 

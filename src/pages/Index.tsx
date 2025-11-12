@@ -8,7 +8,7 @@ import { ResultCard } from "@/components/ResultCard";
 import { AccelerationChart } from "@/components/AccelerationChart";
 import { ControlButton } from "@/components/ControlButton";
 import { Button } from "@/components/ui/button";
-import { Download, Info, MapPin } from "lucide-react";
+import { Download, Info, MapPin, Bug } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Geolocation } from "@capacitor/geolocation";
 import { Capacitor } from "@capacitor/core";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 
 const Index = () => {
+  const [debugMode, setDebugMode] = useState(false);
   const {
     state,
     currentSpeed,
@@ -36,7 +37,7 @@ const Index = () => {
     cancel,
     confirmZero,
     exportCsv,
-  } = useMeasurement();
+  } = useMeasurement(debugMode);
 
   const [showInfo, setShowInfo] = useState(false);
   const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "prompt-with-rationale">("prompt");
@@ -166,8 +167,27 @@ const Index = () => {
               </DialogHeader>
             </DialogContent>
           </Dialog>
+          <Button 
+            variant={debugMode ? "default" : "ghost"} 
+            size="icon" 
+            className={debugMode ? "text-primary-foreground" : "text-muted-foreground"}
+            onClick={() => {
+              setDebugMode(!debugMode);
+              toast({
+                title: debugMode ? "🔧 Modo Debug Desativado" : "🧪 Modo Debug Ativado",
+                description: debugMode 
+                  ? "Medição normal retomada" 
+                  : "Velocidade simulada em 101 km/h após 5s",
+              });
+            }}
+          >
+            <Bug className="w-5 h-5" />
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">Cronometragem GPS de alta precisão</p>
+        <p className="text-sm text-muted-foreground">
+          Cronometragem GPS de alta precisão
+          {debugMode && <span className="text-warning ml-2">• Modo Debug Ativo</span>}
+        </p>
       </header>
 
       {/* Location Permission Alert */}
