@@ -367,27 +367,31 @@ export function useMeasurement(debugMode: boolean = false) {
 
   // Manual zero confirmation
   const confirmZero = useCallback(() => {
-    console.log("🚦 confirmZero chamado, estado atual:", state);
-    if (state === "WAIT_ZERO") {
-      // Reset filter to ensure clean start
-      speedFilter.current.reset();
-      startTimeRef.current = 0;
-      previousSampleRef.current = null;
-      distanceAccumulatorRef.current = 0;
-      
-      console.log("✅ Manual zero confirmed - filter reset, ready to measure");
-      setState("RUNNING");
-      console.log("📊 Estado mudado para RUNNING");
-      
-      toast({
-        title: "✅ Veículo parado confirmado",
-        description: "Acelere para iniciar a medição!",
-      });
-      triggerHaptics(ImpactStyle.Medium);
-    } else {
-      console.log("⚠️ confirmZero ignorado - estado não é WAIT_ZERO");
-    }
-  }, [state]);
+    setState((currentState) => {
+      console.log("🚦 confirmZero chamado, estado atual:", currentState);
+      if (currentState === "WAIT_ZERO") {
+        // Reset filter to ensure clean start
+        speedFilter.current.reset();
+        startTimeRef.current = 0;
+        previousSampleRef.current = null;
+        distanceAccumulatorRef.current = 0;
+        
+        console.log("✅ Manual zero confirmed - filter reset, ready to measure");
+        console.log("📊 Estado mudando para RUNNING");
+        
+        triggerHaptics(ImpactStyle.Medium);
+        toast({
+          title: "Medição iniciada",
+          description: "Acelere para registrar 0-100 km/h",
+        });
+        
+        return "RUNNING";
+      } else {
+        console.log(`⚠️ confirmZero ignorado - estado atual é ${currentState}, esperado WAIT_ZERO`);
+        return currentState;
+      }
+    });
+  }, []);
 
   // Cancel measurement
   const cancel = useCallback(async () => {
@@ -443,11 +447,11 @@ export function useMeasurement(debugMode: boolean = false) {
 
     // Auto-confirm zero when in WAIT_ZERO
     if (state === "WAIT_ZERO") {
-      console.log("🧪 DEBUG MODE: Auto-confirmando veículo parado em 1 segundo...");
+      console.log("🧪 DEBUG MODE: Detectado WAIT_ZERO - Auto-confirmando veículo parado em 500ms...");
       const timer = setTimeout(() => {
-        console.log("🧪 DEBUG MODE: Confirmando zero automaticamente");
+        console.log("🧪 DEBUG MODE: Chamando confirmZero() agora");
         confirmZero();
-      }, 1000);
+      }, 500);
       return () => clearTimeout(timer);
     }
 
