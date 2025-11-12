@@ -44,6 +44,9 @@ export function useMeasurement() {
   
   const qualityMetricsRef = useRef({ hAccSum: 0, sAccSum: 0, count: 0 });
 
+  // Debug mode detection
+  const isDebugMode = useRef(window.location.search.includes('debug=true'));
+
   // Check if sample meets quality thresholds
   const isSampleValid = useCallback((sample: Partial<LocationSample>): boolean => {
     if (sample.horizontalAccuracy === undefined || sample.horizontalAccuracy > DEFAULT_CONFIG.horizontalAccuracyThreshold) {
@@ -432,6 +435,43 @@ export function useMeasurement() {
       });
     }
   }, []);
+
+  // Debug mode: Simulate 101 km/h after 5 seconds
+  useEffect(() => {
+    if (!isDebugMode.current || state !== "RUNNING" || startTimeRef.current === 0) {
+      return;
+    }
+
+    console.log("🧪 DEBUG MODE: Agendando simulação de 101 km/h em 5 segundos...");
+    
+    const timer = setTimeout(() => {
+      console.log("🧪 DEBUG MODE: Injetando velocidade simulada de 101 km/h (28.05 m/s)");
+      
+      // Create a simulated GPS position at 101 km/h
+      const simulatedPosition = {
+        coords: {
+          speed: 28.05, // 101 km/h in m/s
+          accuracy: 5,
+          speedAccuracy: 0.5,
+          latitude: 0,
+          longitude: 0,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+        },
+        timestamp: Date.now(),
+      };
+
+      toast({
+        title: "🧪 DEBUG: Simulando 101 km/h",
+        description: "Teste de finalização da medição",
+      });
+
+      processSample(simulatedPosition);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [state, processSample]);
 
   // Cleanup on unmount
   useEffect(() => {
