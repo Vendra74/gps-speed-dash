@@ -22,7 +22,7 @@ const triggerHaptics = async (style: ImpactStyle) => {
 /**
  * Core hook for 0-100 km/h measurement logic
  */
-export function useMeasurement(debugMode: boolean = false) {
+export function useMeasurement() {
   const [state, setState] = useState<MeasurementState>("IDLE");
   const [currentSpeed, setCurrentSpeed] = useState(0); // filtered speed in m/s
   const [currentSpeedKmh, setCurrentSpeedKmh] = useState(0);
@@ -441,102 +441,6 @@ export function useMeasurement(debugMode: boolean = false) {
     }
   }, []);
 
-  // Debug mode: Auto-progress through states and simulate acceleration to 101 km/h
-  useEffect(() => {
-    if (!debugMode) {
-      return;
-    }
-
-    console.log(`🧪 DEBUG MODE: Estado atual = ${state}`);
-
-    // Start debug flow from IDLE
-    if (state === "IDLE") {
-      console.log("🧪 DEBUG MODE: Iniciando fluxo de debug...");
-      
-      // Reset everything
-      csvLogger.current.reset();
-      speedFilter.current.reset();
-      startTimeRef.current = 0;
-      zeroDetectedTimeRef.current = 0;
-      previousSampleRef.current = null;
-      distanceAccumulatorRef.current = 0;
-      speedPointsRef.current = [];
-      qualityMetricsRef.current = { hAccSum: 0, sAccSum: 0, count: 0 };
-      setSampleCount(0);
-      setResult(null);
-
-      // Go directly to RUNNING state for debug
-      const timer = setTimeout(() => {
-        console.log("🧪 DEBUG MODE: Mudando para estado RUNNING");
-        setState("RUNNING");
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-
-    // Simulate progressive acceleration when RUNNING
-    if (state === "RUNNING") {
-      console.log("🧪 DEBUG MODE: Estado RUNNING detectado - Iniciando simulação de aceleração progressiva...");
-      
-      const timers: NodeJS.Timeout[] = [];
-      
-      // First, set startTimeRef to trigger timer
-      startTimeRef.current = Date.now();
-      console.log("🧪 DEBUG MODE: Timer iniciado em", startTimeRef.current);
-      
-      // Inject samples at different speeds to simulate acceleration (faster intervals)
-      const simulationSteps = [
-        { delay: 200, speed: 2.78 },   // 10 km/h
-        { delay: 400, speed: 5.56 },   // 20 km/h
-        { delay: 600, speed: 8.33 },   // 30 km/h
-        { delay: 800, speed: 11.11 },  // 40 km/h
-        { delay: 1000, speed: 13.89 }, // 50 km/h
-        { delay: 1200, speed: 16.67 }, // 60 km/h
-        { delay: 1400, speed: 19.44 }, // 70 km/h
-        { delay: 1600, speed: 22.22 }, // 80 km/h
-        { delay: 1800, speed: 25.00 }, // 90 km/h
-        { delay: 2000, speed: 28.05 }, // 101 km/h - triggers completion
-      ];
-
-      simulationSteps.forEach((step) => {
-        const timer = setTimeout(() => {
-          console.log(`🧪 DEBUG MODE: Injetando velocidade simulada ${(step.speed * 3.6).toFixed(0)} km/h (${step.speed.toFixed(2)} m/s)`);
-          
-          const simulatedPosition = {
-            coords: {
-              speed: step.speed,
-              accuracy: 5,
-              speedAccuracy: 0.5,
-              latitude: 0,
-              longitude: 0,
-              altitude: null,
-              altitudeAccuracy: null,
-              heading: null,
-            },
-            timestamp: Date.now(),
-          };
-
-          console.log(`🧪 Chamando processSample com velocidade ${step.speed.toFixed(2)} m/s`);
-          processSample(simulatedPosition);
-        }, step.delay);
-        
-        timers.push(timer);
-      });
-
-      // Show toast at the end
-      const finalTimer = setTimeout(() => {
-        toast({
-          title: "🧪 DEBUG: Simulação completa",
-          description: "Aceleração de 0-100 km/h simulada",
-        });
-      }, 2200);
-      timers.push(finalTimer);
-
-      return () => {
-        timers.forEach(timer => clearTimeout(timer));
-      };
-    }
-  }, [debugMode, state, processSample]);
 
   // Cleanup on unmount
   useEffect(() => {
