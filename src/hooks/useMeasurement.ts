@@ -435,12 +435,13 @@ export function useMeasurement(debugMode: boolean = false) {
 
   // Debug mode: Simulate 101 km/h after 5 seconds
   useEffect(() => {
-    if (!debugMode || state !== "RUNNING" || startTimeRef.current === 0) {
+    if (!debugMode || state !== "RUNNING") {
       return;
     }
 
-    console.log("🧪 DEBUG MODE: Agendando simulação de 101 km/h em 5 segundos...");
+    console.log("🧪 DEBUG MODE: Agendando simulação de 101 km/h em 5 segundos após começar a medir...");
     
+    // Wait a bit to ensure measurement has started, then simulate
     const timer = setTimeout(() => {
       console.log("🧪 DEBUG MODE: Injetando velocidade simulada de 101 km/h (28.05 m/s)");
       
@@ -468,7 +469,7 @@ export function useMeasurement(debugMode: boolean = false) {
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [state, processSample]);
+  }, [debugMode, state, processSample]);
 
   // Cleanup on unmount
   useEffect(() => {
