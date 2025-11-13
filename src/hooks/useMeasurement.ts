@@ -60,8 +60,6 @@ export function useMeasurement() {
     const now = Date.now();
     const rawSpeed = position.coords.speed ?? 0;
     const filteredSpeed = speedFilter.current.filter(Math.max(0, rawSpeed));
-    
-    console.log(`🔄 processSample - Estado: ${state}, Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
 
     const sample: LocationSample = {
       timestamp: now,
@@ -99,6 +97,8 @@ export function useMeasurement() {
 
     // State machine transitions
     setState((currentState) => {
+      console.log(`🔄 processSample - Estado REAL: ${currentState}, Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
+      
       if (currentState === "WAIT_ZERO") {
         // Check if vehicle is at zero (removed sample.isValid requirement for better detection)
         if (filteredSpeed < DEFAULT_CONFIG.zeroThreshold) {
@@ -167,6 +167,11 @@ export function useMeasurement() {
         ) {
           console.log(`🎯 TARGET CRUZADO! Detectado em ${mpsToKmh(filteredSpeed).toFixed(1)} km/h`);
           console.log(`📊 isValid: ${sample.isValid}, hAcc: ${sample.horizontalAccuracy.toFixed(1)}m, sAcc: ${sample.speedAccuracy?.toFixed(2) || 'N/A'}m/s`);
+          
+          toast({
+            title: "🏁 100 km/h atingido!",
+            description: "Medição completa!",
+          });
           // Interpolate exact crossing time
           const tHit = interpolateTargetCrossing(
             previousSampleRef.current.timestamp,
