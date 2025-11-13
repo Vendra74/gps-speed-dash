@@ -59,13 +59,23 @@ export function useMeasurement() {
   const processSample = useCallback((position: any) => {
     const now = Date.now();
     
-    // Ignore samples with null speed - GPS hasn't calculated speed yet
-    if (position.coords.speed === null || position.coords.speed === undefined) {
-      console.log("⚠️ GPS sample ignorada: speed null/undefined");
+    // Get current state to decide how to handle null speed
+    let shouldIgnoreNull = false;
+    setState((currentState) => {
+      // Only ignore null speed in WAIT_ZERO state (auto-detection)
+      // In RUNNING state, treat null as 0 (user already confirmed stopped)
+      shouldIgnoreNull = currentState === "WAIT_ZERO";
+      return currentState;
+    });
+    
+    // Ignore samples with null speed ONLY during WAIT_ZERO (auto-detection)
+    if (shouldIgnoreNull && (position.coords.speed === null || position.coords.speed === undefined)) {
+      console.log("⚠️ GPS sample ignorada em WAIT_ZERO: speed null/undefined");
       return;
     }
     
-    const rawSpeed = Math.max(0, position.coords.speed); // Ensure non-negative
+    // In RUNNING state, treat null speed as 0
+    const rawSpeed = Math.max(0, position.coords.speed ?? 0);
     const filteredSpeed = speedFilter.current.filter(rawSpeed);
 
     const sample: LocationSample = {
@@ -381,18 +391,32 @@ export function useMeasurement() {
     }, 500);
   }, [startWatching]);
 
-  // Manual zero confirmation
+  // Manual zero confirmation - forces start even with null GPS speed
   const confirmZero = useCallback(() => {
     setState((currentState) => {
       console.log("🚦 confirmZero chamado, estado atual:", currentState);
       if (currentState === "WAIT_ZERO") {
-        // Reset filter to ensure clean start
+        // Reset filter and inject a zero speed sample to start measurement
         speedFilter.current.reset();
+        speedFilter.current.filter(0); // Prime filter with zero
+        
         startTimeRef.current = 0;
-        previousSampleRef.current = null;
         distanceAccumulatorRef.current = 0;
         
-        console.log("✅ Manual zero confirmed - filter reset, ready to measure");
+        // Create a synthetic zero sample to ensure we have a valid starting point
+        const now = Date.now();
+        previousSampleRef.current = {
+          timestamp: now,
+          speed: 0,
+          speedFiltered: 0,
+          horizontalAccuracy: 5,
+          speedAccuracy: undefined,
+          latitude: 0,
+          longitude: 0,
+          isValid: true,
+        };
+        
+        console.log("✅ Manual zero confirmed - synthetic zero sample created, ready to measure");
         console.log("📊 Estado mudando para RUNNING");
         
         triggerHaptics(ImpactStyle.Medium);
