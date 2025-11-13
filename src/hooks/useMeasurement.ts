@@ -42,6 +42,7 @@ export function useMeasurement() {
   const previousSampleRef = useRef<LocationSample | null>(null);
   const distanceAccumulatorRef = useRef<number>(0);
   const speedPointsRef = useRef<Array<{ time: number; speed: number }>>([]);
+  const targetCrossedRef = useRef<boolean>(false);
   
   const qualityMetricsRef = useRef({ hAccSum: 0, sAccSum: 0, count: 0 });
 
@@ -137,6 +138,7 @@ export function useMeasurement() {
           csvLogger.current.start(now);
           distanceAccumulatorRef.current = 0;
           speedPointsRef.current = []; // Reset speed points
+          targetCrossedRef.current = false; // Reset target crossed flag
           console.log(`Timer started! Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
           toast({
             title: "Cronômetro iniciado!",
@@ -170,14 +172,16 @@ export function useMeasurement() {
           const currSpeedKmh = mpsToKmh(filteredSpeed).toFixed(1);
           const targetKmh = mpsToKmh(DEFAULT_CONFIG.targetSpeedMps).toFixed(1);
           console.log(`🔍 Checking target: prev=${previousSampleRef.current.speedFiltered.toFixed(2)} m/s (${prevSpeedKmh} km/h), current=${filteredSpeed.toFixed(2)} m/s (${currSpeedKmh} km/h), target=${DEFAULT_CONFIG.targetSpeedMps.toFixed(2)} m/s (${targetKmh} km/h)`);
-          console.log(`🔍 Condições: prev < target? ${previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps}, current >= target? ${filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps}`);
+          console.log(`🔍 Condições: prev < target? ${previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps}, current >= target? ${filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps}, targetCrossed? ${targetCrossedRef.current}`);
         }
         
+        // Detect target crossing: first time we hit or exceed target speed
         if (
-          previousSampleRef.current &&
-          previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps &&
+          startTimeRef.current > 0 &&
+          !targetCrossedRef.current &&
           filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps
         ) {
+          targetCrossedRef.current = true; // Mark as crossed
           console.log(`🎯 TARGET CRUZADO! Detectado em ${mpsToKmh(filteredSpeed).toFixed(1)} km/h`);
           console.log(`📊 isValid: ${sample.isValid}, hAcc: ${sample.horizontalAccuracy.toFixed(1)}m, sAcc: ${sample.speedAccuracy?.toFixed(2) || 'N/A'}m/s`);
           
@@ -185,14 +189,22 @@ export function useMeasurement() {
             title: "🏁 100 km/h atingido!",
             description: "Medição completa!",
           });
-          // Interpolate exact crossing time
-          const tHit = interpolateTargetCrossing(
-            previousSampleRef.current.timestamp,
-            previousSampleRef.current.speedFiltered,
-            now,
-            filteredSpeed,
-            DEFAULT_CONFIG.targetSpeedMps
-          );
+          
+          // Interpolate exact crossing time if we have a previous sample
+          let tHit: number;
+          if (previousSampleRef.current && previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps) {
+            // We have a valid crossing between two samples
+            tHit = interpolateTargetCrossing(
+              previousSampleRef.current.timestamp,
+              previousSampleRef.current.speedFiltered,
+              now,
+              filteredSpeed,
+              DEFAULT_CONFIG.targetSpeedMps
+            );
+          } else {
+            // First sample above target, use current time
+            tHit = now;
+          }
 
           const finalTime = (tHit - startTimeRef.current) / 1000; // seconds
 
@@ -365,6 +377,7 @@ export function useMeasurement() {
     previousSampleRef.current = null;
     distanceAccumulatorRef.current = 0;
     speedPointsRef.current = [];
+    targetCrossedRef.current = false;
     qualityMetricsRef.current = { hAccSum: 0, sAccSum: 0, count: 0 };
     setSampleCount(0);
     setResult(null);
