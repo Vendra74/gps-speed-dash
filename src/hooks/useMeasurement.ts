@@ -66,6 +66,8 @@ export function useMeasurement() {
     // CRITICAL: Ignore samples with null speed for measurement processing
     if (position.coords.speed === null || position.coords.speed === undefined) {
       console.log("⚠️ GPS sample ignorada: speed null/undefined - aguardando leitura válida do GPS");
+      // Increment sample count to show GPS is active, even if speed is null
+      setSampleCount((prev) => prev + 1);
       return;
     }
     
