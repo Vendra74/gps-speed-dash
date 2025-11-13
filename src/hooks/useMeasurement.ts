@@ -60,14 +60,14 @@ export function useMeasurement() {
   const processSample = useCallback((position: any) => {
     const now = Date.now();
     
-    // CRITICAL: Always ignore samples with null speed - GPS must provide valid readings
+    // Mark GPS as connected (even if speed is null)
+    setGpsValid(true);
+    
+    // CRITICAL: Ignore samples with null speed for measurement processing
     if (position.coords.speed === null || position.coords.speed === undefined) {
       console.log("⚠️ GPS sample ignorada: speed null/undefined - aguardando leitura válida do GPS");
-      setGpsValid(false);
       return;
     }
-    
-    setGpsValid(true);
     
     const rawSpeed = Math.max(0, position.coords.speed);
     const filteredSpeed = speedFilter.current.filter(rawSpeed);
