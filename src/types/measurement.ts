@@ -49,8 +49,8 @@ export interface MeasurementConfig {
 
 export const DEFAULT_CONFIG: MeasurementConfig = {
   targetSpeedMps: 27.78, // 100 km/h
-  zeroThreshold: 2.0, // Increased from 0.5 to handle GPS noise better
-  zeroHoldTime: 500, // Reduced from 1000 for faster detection
+  zeroThreshold: 0.56, // ~2 km/h - veículo deve estar praticamente parado
+  zeroHoldTime: 1000, // 1 segundo - tempo para confirmar veículo parado
   hysteresis: 0.3,
   maxSampleGapMs: 500,
   horizontalAccuracyThreshold: 15, // Relaxed from 10 for initial samples
