@@ -4,6 +4,7 @@ import { StateIndicator } from "@/components/StateIndicator";
 import { SpeedDisplay } from "@/components/SpeedDisplay";
 import { TimeDisplay } from "@/components/TimeDisplay";
 import { SignalQuality } from "@/components/SignalQuality";
+import { GpsStatus } from "@/components/GpsStatus";
 import { ResultCard } from "@/components/ResultCard";
 import { AccelerationChart } from "@/components/AccelerationChart";
 import { ControlButton } from "@/components/ControlButton";
@@ -31,6 +32,7 @@ const Index = () => {
     sampleCount,
     result,
     signalQuality,
+    gpsValid,
     arm,
     reset,
     cancel,
@@ -165,8 +167,17 @@ const Index = () => {
                 </DialogDescription>
               </DialogHeader>
             </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
+      </div>
+
+      {/* GPS Status */}
+      <div className="flex justify-center mb-6">
+        <GpsStatus 
+          isValid={gpsValid} 
+          sampleCount={sampleCount} 
+          quality={signalQuality}
+        />
+      </div>
         <p className="text-sm text-muted-foreground">
           Cronometragem GPS de alta precisão
         </p>
