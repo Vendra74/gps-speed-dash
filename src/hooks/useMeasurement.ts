@@ -58,8 +58,15 @@ export function useMeasurement() {
   // Process incoming GPS sample
   const processSample = useCallback((position: any) => {
     const now = Date.now();
-    const rawSpeed = position.coords.speed ?? 0;
-    const filteredSpeed = speedFilter.current.filter(Math.max(0, rawSpeed));
+    
+    // Ignore samples with null speed - GPS hasn't calculated speed yet
+    if (position.coords.speed === null || position.coords.speed === undefined) {
+      console.log("⚠️ GPS sample ignorada: speed null/undefined");
+      return;
+    }
+    
+    const rawSpeed = Math.max(0, position.coords.speed); // Ensure non-negative
+    const filteredSpeed = speedFilter.current.filter(rawSpeed);
 
     const sample: LocationSample = {
       timestamp: now,
