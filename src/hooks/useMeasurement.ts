@@ -29,6 +29,7 @@ export function useMeasurement() {
   const [sampleCount, setSampleCount] = useState(0);
   const [result, setResult] = useState<MeasurementResult | null>(null);
   const [signalQuality, setSignalQuality] = useState<"good" | "medium" | "poor">("good");
+  const [gpsValid, setGpsValid] = useState(false);
 
   const speedFilter = useRef(new SpeedFilter(DEFAULT_CONFIG.medianWindowSize, DEFAULT_CONFIG.emaAlpha));
   const csvLogger = useRef(new CsvLogger());
@@ -62,8 +63,11 @@ export function useMeasurement() {
     // CRITICAL: Always ignore samples with null speed - GPS must provide valid readings
     if (position.coords.speed === null || position.coords.speed === undefined) {
       console.log("⚠️ GPS sample ignorada: speed null/undefined - aguardando leitura válida do GPS");
+      setGpsValid(false);
       return;
     }
+    
+    setGpsValid(true);
     
     const rawSpeed = Math.max(0, position.coords.speed);
     const filteredSpeed = speedFilter.current.filter(rawSpeed);
@@ -478,6 +482,7 @@ export function useMeasurement() {
     sampleCount,
     result,
     signalQuality,
+    gpsValid,
     arm,
     reset,
     cancel,
