@@ -12,11 +12,13 @@ export function SpeedDisplay({ speedMps, speedKmh, state }: SpeedDisplayProps) {
 
   return (
     <div className={cn("text-center", isRunning && "pulse-racing")}>
-      <div className="text-6xl md:text-8xl font-bold font-mono tracking-tight text-primary">
+      <div className={`text-6xl md:text-8xl font-bold font-digital tracking-tight ${
+        isRunning ? 'text-primary digital-display-active' : 'text-primary digital-display'
+      }`}>
         {speedKmh.toFixed(1)}
       </div>
       <div className="text-lg text-muted-foreground font-medium mt-2">km/h</div>
-      <div className="text-sm text-muted-foreground mt-1">
+      <div className="text-sm text-muted-foreground mt-1 font-digital">
         {speedMps.toFixed(2)} m/s
       </div>
     </div>

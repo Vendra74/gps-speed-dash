@@ -14,8 +14,8 @@ export function TimeDisplay({ timeSeconds, isRunning }: TimeDisplayProps) {
           <h2 className="text-lg font-semibold text-foreground">Cronômetro</h2>
         </div>
         <div className="text-center">
-          <div className={`text-6xl md:text-7xl font-mono font-bold tabular-nums ${
-            isRunning ? 'text-primary' : 'text-muted-foreground'
+          <div className={`text-6xl md:text-7xl font-digital font-bold tabular-nums ${
+            isRunning ? 'text-primary digital-display-active' : 'text-muted-foreground digital-display'
           }`}>
             {timeSeconds.toFixed(2)}
           </div>
