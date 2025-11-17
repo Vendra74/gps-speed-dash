@@ -5,7 +5,7 @@ export function Logo({ className = "" }: { className?: string }) {
     <img 
       src={logoImage} 
       alt="Zero100 Logo" 
-      className={`h-12 md:h-16 w-auto ${className}`}
+      className={`h-20 md:h-24 w-auto ${className}`}
     />
   );
 }
