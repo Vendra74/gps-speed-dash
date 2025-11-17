@@ -8,7 +8,7 @@ interface TimeDisplayProps {
 export function TimeDisplay({ timeSeconds, isRunning }: TimeDisplayProps) {
   return (
     <div className="w-full">
-      <div className="bg-card border-2 border-border rounded-2xl p-6 shadow-lg">
+      <div className="glass-card rounded-2xl p-6 shadow-lg">
         <div className="flex items-center justify-center gap-3 mb-2">
           <Timer className={`w-6 h-6 ${isRunning ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
           <h2 className="text-lg font-semibold text-foreground">Cronômetro</h2>

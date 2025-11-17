@@ -149,4 +149,27 @@ All colors MUST be HSL.
       0 3px 5px rgba(0, 0, 0, 0.5),
       2px 2px 0 hsl(var(--primary) / 0.3);
   }
+
+  /* Glassmorphism effect */
+  .glass-card {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--card) / 0.25) 0%,
+      hsl(var(--card) / 0.15) 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--border) / 0.3);
+  }
+
+  .glass-card-strong {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--card) / 0.35) 0%,
+      hsl(var(--card) / 0.25) 100%
+    );
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid hsl(var(--border) / 0.4);
+  }
 }

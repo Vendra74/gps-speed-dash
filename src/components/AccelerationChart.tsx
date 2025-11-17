@@ -9,7 +9,7 @@ interface AccelerationChartProps {
 
 export function AccelerationChart({ speedPoints, finalTime }: AccelerationChartProps) {
   return (
-    <Card className="p-6">
+    <Card className="p-6 glass-card">
       <h3 className="text-lg font-semibold mb-4 text-foreground">Curva de Aceleração</h3>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={speedPoints} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
