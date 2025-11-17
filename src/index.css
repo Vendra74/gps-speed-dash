@@ -9,7 +9,7 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Racing Dark Theme - Default */
-    --background: 0 0% 7%;
+    --background: 235 51% 22%;
     --foreground: 0 0% 98%;
 
     --card: 0 0% 10%;
