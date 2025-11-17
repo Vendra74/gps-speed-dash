@@ -8,6 +8,7 @@ import { GpsStatus } from "@/components/GpsStatus";
 import { ResultCard } from "@/components/ResultCard";
 import { AccelerationChart } from "@/components/AccelerationChart";
 import { ControlButton } from "@/components/ControlButton";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -136,9 +137,7 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <h1 className="text-4xl md:text-5xl font-bold text-primary">
-            0–100 km/h
-          </h1>
+          <Logo className="text-4xl md:text-5xl" />
           <Dialog open={showInfo} onOpenChange={setShowInfo}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="text-muted-foreground">
