@@ -19,8 +19,8 @@ All colors MUST be HSL.
     --popover-foreground: 0 0% 98%;
 
     /* Matte Gold Primary */
-    --primary: 45 55% 60%;
-    --primary-foreground: 235 51% 15%;
+    --primary: 45 60% 45%;
+    --primary-foreground: 0 0% 98%;
 
     /* Carbon Secondary */
     --secondary: 0 0% 15%;
@@ -38,13 +38,13 @@ All colors MUST be HSL.
 
     --border: 0 0% 20%;
     --input: 0 0% 20%;
-    --ring: 45 55% 60%;
+    --ring: 45 60% 45%;
 
     --radius: 0.75rem;
 
     /* Racing specific colors */
-    --racing-red: 45 55% 60%;
-    --racing-red-glow: 45 55% 70%;
+    --racing-red: 45 60% 45%;
+    --racing-red-glow: 45 60% 55%;
     --carbon: 0 0% 15%;
     --safety-yellow: 45 93% 47%;
     --speed-green: 142 71% 45%;
@@ -53,13 +53,13 @@ All colors MUST be HSL.
     --signal-poor: 0 72% 51%;
 
     /* Gradients */
-    --gradient-racing: linear-gradient(135deg, hsl(45 55% 60%) 0%, hsl(45 55% 50%) 100%);
+    --gradient-racing: linear-gradient(135deg, hsl(45 60% 45%) 0%, hsl(45 60% 35%) 100%);
     --gradient-carbon: linear-gradient(180deg, hsl(0 0% 12%) 0%, hsl(0 0% 7%) 100%);
-    --gradient-speed: linear-gradient(90deg, hsl(45 55% 60%) 0%, hsl(45 93% 47%) 100%);
+    --gradient-speed: linear-gradient(90deg, hsl(45 60% 45%) 0%, hsl(45 93% 47%) 100%);
 
     /* Shadows */
-    --shadow-racing: 0 0 30px hsl(45 55% 60% / 0.3);
-    --shadow-glow: 0 0 20px hsl(45 55% 70% / 0.5);
+    --shadow-racing: 0 0 30px hsl(45 60% 45% / 0.3);
+    --shadow-glow: 0 0 20px hsl(45 60% 55% / 0.5);
 
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -72,8 +72,8 @@ All colors MUST be HSL.
     --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
-    --primary: 45 55% 60%;
-    --primary-foreground: 235 51% 15%;
+    --primary: 45 60% 45%;
+    --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 93%;
     --secondary-foreground: 0 0% 10%;
     --muted: 0 0% 93%;
