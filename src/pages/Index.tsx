@@ -195,7 +195,7 @@ const Index = () => {
       {/* Location Permission Alert */}
       {(locationPermission === "prompt" || locationPermission === "prompt-with-rationale" || locationPermission === "denied") && (
         <div className="mb-6">
-          <Alert className="border-primary/50 bg-primary/5">
+          <Alert className="border-primary/30 glass-card">
             <MapPin className="h-5 w-5 text-primary" />
             <AlertTitle className="text-foreground">Permissão de Localização Necessária</AlertTitle>
             <AlertDescription className="text-muted-foreground">
@@ -224,7 +224,7 @@ const Index = () => {
 
       {/* Manual/Auto Mode Switch */}
       <div className="mb-6 max-w-2xl mx-auto w-full">
-        <div className="flex items-center justify-center gap-3 p-4 rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-center gap-3 p-4 rounded-lg glass-card">
           <Label htmlFor="manual-mode" className="text-sm font-medium cursor-pointer">
             Disparo Automático
           </Label>

@@ -30,8 +30,8 @@ export function GpsStatus({ isValid, sampleCount, quality }: GpsStatusProps) {
 
   return (
     <div className={cn(
-      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
-      isValid && sampleCount > 0 ? config.bgColor : "bg-muted"
+      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium glass-card",
+      isValid && sampleCount > 0 ? config.bgColor : ""
     )}>
       <Satellite className={cn(
         "w-3.5 h-3.5",

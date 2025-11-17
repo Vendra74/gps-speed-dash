@@ -9,7 +9,7 @@ interface ResultCardProps {
 
 export function ResultCard({ result }: ResultCardProps) {
   return (
-    <Card className="p-6 bg-card border-primary/20">
+    <Card className="p-6 glass-card border-primary/30">
       <div className="flex items-center gap-2 mb-4">
         <Trophy className="w-6 h-6 text-primary" />
         <h2 className="text-2xl font-bold">Resultado</h2>
