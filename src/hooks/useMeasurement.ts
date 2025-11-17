@@ -22,7 +22,7 @@ const triggerHaptics = async (style: ImpactStyle) => {
 /**
  * Core hook for 0-100 km/h measurement logic
  */
-export function useMeasurement() {
+export function useMeasurement(isManualMode = false) {
   const [state, setState] = useState<MeasurementState>("IDLE");
   const [currentSpeed, setCurrentSpeed] = useState(0); // filtered speed in m/s
   const [currentSpeedKmh, setCurrentSpeedKmh] = useState(0);
@@ -369,7 +369,7 @@ export function useMeasurement() {
 
   // Arm measurement
   const arm = useCallback(async () => {
-    console.log("🎯 ARM iniciado");
+    console.log("🎯 ARM iniciado - Modo:", isManualMode ? "MANUAL" : "AUTOMÁTICO");
     csvLogger.current.reset();
     speedFilter.current.reset();
     startTimeRef.current = 0;
@@ -388,17 +388,34 @@ export function useMeasurement() {
     await startWatching();
     
     triggerHaptics(ImpactStyle.Medium);
-    toast({
-      title: "Sistema armado",
-      description: "Aguardando veículo parado...",
-    });
 
-    // Transition to WAIT_ZERO
-    setTimeout(() => {
-      console.log("📊 Estado mudando para WAIT_ZERO");
-      setState("WAIT_ZERO");
-    }, 500);
-  }, [startWatching]);
+    if (isManualMode) {
+      // Modo manual: inicia medição diretamente
+      console.log("📊 Modo MANUAL - Iniciando medição diretamente");
+      toast({
+        title: "Medição iniciada (Manual)",
+        description: "Acelere para registrar 0-100 km/h",
+      });
+      
+      setTimeout(() => {
+        console.log("📊 Estado mudando para RUNNING (modo manual)");
+        setState("RUNNING");
+        csvLogger.current.start(Date.now());
+      }, 500);
+    } else {
+      // Modo automático: aguarda detectar zero
+      toast({
+        title: "Sistema armado",
+        description: "Aguardando veículo parado...",
+      });
+
+      // Transition to WAIT_ZERO
+      setTimeout(() => {
+        console.log("📊 Estado mudando para WAIT_ZERO");
+        setState("WAIT_ZERO");
+      }, 500);
+    }
+  }, [startWatching, isManualMode]);
 
   // Manual zero confirmation - requires valid GPS reading
   const confirmZero = useCallback(() => {

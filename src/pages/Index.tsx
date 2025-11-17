@@ -9,6 +9,8 @@ import { ResultCard } from "@/components/ResultCard";
 import { AccelerationChart } from "@/components/AccelerationChart";
 import { ControlButton } from "@/components/ControlButton";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Download, Info, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Geolocation } from "@capacitor/geolocation";
@@ -25,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 
 const Index = () => {
+  const [isManualMode, setIsManualMode] = useState(false);
   const {
     state,
     currentSpeed,
@@ -38,7 +41,7 @@ const Index = () => {
     cancel,
     confirmZero,
     exportCsv,
-  } = useMeasurement();
+  } = useMeasurement(isManualMode);
 
   const [showInfo, setShowInfo] = useState(false);
   const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "prompt-with-rationale">("prompt");
@@ -147,15 +150,21 @@ const Index = () => {
                 <DialogTitle>Como usar</DialogTitle>
                 <DialogDescription className="space-y-2 text-left">
                   <p>
+                    <strong>Modo Disparo:</strong> Escolha entre automático (detecta quando o veículo está parado) ou manual (inicia imediatamente).
+                  </p>
+                  <p>
                     <strong>1. ARMAR:</strong> Pressione o botão ARMAR para iniciar o sistema GPS.
                   </p>
                   <p>
-                    <strong>2. PARAR:</strong> Aguarde até que o veículo esteja completamente parado
+                    <strong>2. MODO AUTOMÁTICO:</strong> Aguarde até que o veículo esteja completamente parado
                     (velocidade &lt; 2 km/h por 1 segundo).
                   </p>
                   <p>
-                    <strong>3. ACELERAR:</strong> O cronômetro inicia automaticamente quando você
-                    sair do zero. Não toque no telefone!
+                    <strong>2. MODO MANUAL:</strong> A medição inicia imediatamente após armar.
+                  </p>
+                  <p>
+                    <strong>3. ACELERAR:</strong> O cronômetro registra automaticamente quando você
+                    acelera. Não toque no telefone!
                   </p>
                   <p>
                     <strong>4. FINALIZAR:</strong> A medição para automaticamente ao cruzar 100 km/h.
@@ -211,6 +220,29 @@ const Index = () => {
       {/* Safety Warning */}
       <div className="mb-6">
         <SafetyWarning />
+      </div>
+
+      {/* Manual/Auto Mode Switch */}
+      <div className="mb-6 max-w-2xl mx-auto w-full">
+        <div className="flex items-center justify-center gap-3 p-4 rounded-lg border border-border bg-card">
+          <Label htmlFor="manual-mode" className="text-sm font-medium cursor-pointer">
+            Disparo Automático
+          </Label>
+          <Switch
+            id="manual-mode"
+            checked={isManualMode}
+            onCheckedChange={setIsManualMode}
+            disabled={state !== "IDLE"}
+          />
+          <Label htmlFor="manual-mode" className="text-sm font-medium cursor-pointer">
+            Disparo Manual
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          {isManualMode 
+            ? "Medição inicia imediatamente ao armar" 
+            : "Medição inicia após detectar veículo parado"}
+        </p>
       </div>
 
       {/* Main Content */}
