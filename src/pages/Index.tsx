@@ -137,7 +137,7 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <Logo className="text-4xl md:text-5xl" />
+          <Logo />
           <Dialog open={showInfo} onOpenChange={setShowInfo}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="text-muted-foreground">
