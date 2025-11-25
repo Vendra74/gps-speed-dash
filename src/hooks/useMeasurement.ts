@@ -3,7 +3,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { Capacitor } from "@capacitor/core";
 import { MeasurementState, LocationSample, MeasurementResult, DEFAULT_CONFIG } from "@/types/measurement";
-import { SpeedFilter } from "@/utils/filters";
+import { KalmanFilter } from "@/utils/filters";
 import { CsvLogger } from "@/utils/csvLogger";
 import { interpolateTargetCrossing, mpsToKmh } from "@/utils/interpolation";
 import { toast } from "@/hooks/use-toast";
@@ -31,7 +31,7 @@ export function useMeasurement(isManualMode = false) {
   const [signalQuality, setSignalQuality] = useState<"good" | "medium" | "poor">("good");
   const [gpsValid, setGpsValid] = useState(false);
 
-  const speedFilter = useRef(new SpeedFilter(DEFAULT_CONFIG.medianWindowSize, DEFAULT_CONFIG.emaAlpha));
+  const speedFilter = useRef(new KalmanFilter(0.5)); // Process noise = 0.5 m/s²
   const csvLogger = useRef(new CsvLogger());
   const watchId = useRef<string | number | null>(null); // string for Capacitor, number for browser
   const isNative = useRef(Capacitor.isNativePlatform());
@@ -73,7 +73,8 @@ export function useMeasurement(isManualMode = false) {
     }
     
     const rawSpeed = Math.max(0, position.coords.speed);
-    const filteredSpeed = speedFilter.current.filter(rawSpeed);
+    const speedAccuracy = (position.coords as any).speedAccuracy;
+    const filteredSpeed = speedFilter.current.filter(rawSpeed, now, speedAccuracy);
 
     const sample: LocationSample = {
       timestamp: now,
