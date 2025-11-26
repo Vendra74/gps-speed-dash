@@ -229,6 +229,9 @@ export function useMeasurement(isManualMode = false) {
           };
 
           setResult(measurementResult);
+          
+          // Stop GPS watch to prevent further processing
+          stopWatching();
 
           // Feedback
           triggerHaptics(ImpactStyle.Heavy);
