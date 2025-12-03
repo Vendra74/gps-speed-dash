@@ -135,12 +135,27 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 flex flex-col">
       {/* Header */}
-      <header className="text-center mb-6">
-        <div className="flex items-center justify-start gap-2 mb-2">
+      <header className="mb-6">
+        <div className="flex items-center gap-4">
+          {/* Logo */}
           <Logo />
+          
+          {/* GPS Status and Subtitle */}
+          <div className="flex flex-col items-start gap-1">
+            <GpsStatus 
+              isValid={gpsValid} 
+              sampleCount={sampleCount} 
+              quality={signalQuality}
+            />
+            <p className="text-sm text-muted-foreground">
+              Cronometragem GPS de alta precisão
+            </p>
+          </div>
+          
+          {/* Info Button */}
           <Dialog open={showInfo} onOpenChange={setShowInfo}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground">
+              <Button variant="ghost" size="icon" className="text-muted-foreground ml-auto">
                 <Info className="w-5 h-5" />
               </Button>
             </DialogTrigger>
@@ -175,20 +190,8 @@ const Index = () => {
                 </DialogDescription>
               </DialogHeader>
             </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* GPS Status */}
-      <div className="flex justify-center mb-6">
-        <GpsStatus 
-          isValid={gpsValid} 
-          sampleCount={sampleCount} 
-          quality={signalQuality}
-        />
-      </div>
-        <p className="text-sm text-muted-foreground">
-          Cronometragem GPS de alta precisão
-        </p>
+          </Dialog>
+        </div>
       </header>
 
       {/* Location Permission Alert */}
