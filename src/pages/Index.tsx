@@ -136,7 +136,7 @@ const Index = () => {
     <div className="min-h-screen bg-background p-4 md:p-8 flex flex-col">
       {/* Header */}
       <header className="text-center mb-6">
-        <div className="flex items-center justify-center gap-2 mb-2">
+        <div className="flex items-center justify-start gap-2 mb-2">
           <Logo />
           <Dialog open={showInfo} onOpenChange={setShowInfo}>
             <DialogTrigger asChild>
