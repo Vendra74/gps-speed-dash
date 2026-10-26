@@ -5,6 +5,8 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // "/" for Capacitor and local dev; GitHub Pages sets VITE_BASE_PATH=/gps-speed-dash/
+  base: process.env.VITE_BASE_PATH || "/",
   server: {
     host: "::",
     port: 8080,
