@@ -1,14 +1,14 @@
 // Types for 0-100 km/h measurement system
 
-export type MeasurementState = 
-  | 'IDLE' 
-  | 'ARMED' 
-  | 'WAIT_ZERO' 
-  | 'RUNNING' 
+export type MeasurementState =
+  | 'IDLE'
+  | 'ARMED'
+  | 'WAIT_ZERO'
+  | 'RUNNING'
   | 'DONE';
 
 export interface LocationSample {
-  timestamp: number; // Unix timestamp in ms
+  timestamp: number; // GPS fix time, Unix timestamp in ms
   speed: number; // m/s, raw from GPS
   speedFiltered: number; // m/s, after filtering
   horizontalAccuracy: number; // meters
@@ -33,14 +33,16 @@ export interface MeasurementResult {
   startTime: number;
   endTime: number;
   speedPoints: SpeedPoint[]; // Speed curve data
+  maxSampleGapMs: number; // Largest interval between GPS fixes during the run
 }
 
 export interface MeasurementConfig {
   targetSpeedMps: number; // 27.78 m/s for 100 km/h
+  launchSpeedMps: number; // speed the clock is interpolated back to at launch
   zeroThreshold: number; // 0.5 m/s
   zeroHoldTime: number; // 1000 ms
   hysteresis: number; // 0.3 m/s
-  maxSampleGapMs: number; // 500 ms
+  maxSampleGapMs: number; // gap between fixes that triggers a warning
   horizontalAccuracyThreshold: number; // 10 m
   speedAccuracyThreshold: number; // 1.0 m/s
   medianWindowSize: number; // 5
@@ -48,11 +50,12 @@ export interface MeasurementConfig {
 }
 
 export const DEFAULT_CONFIG: MeasurementConfig = {
-  targetSpeedMps: 27.78, // 100 km/h
+  targetSpeedMps: 100 / 3.6, // 100 km/h
+  launchSpeedMps: 1 / 3.6, // 1 km/h - cronômetro começa quando o veículo sai do lugar
   zeroThreshold: 0.56, // ~2 km/h - veículo deve estar praticamente parado
   zeroHoldTime: 1000, // 1 segundo - tempo para confirmar veículo parado
   hysteresis: 0.3,
-  maxSampleGapMs: 500,
+  maxSampleGapMs: 1500, // GPS de celular costuma entregar 1 Hz; acima disso avisa
   horizontalAccuracyThreshold: 15, // Relaxed from 10 for initial samples
   speedAccuracyThreshold: 2.0, // Relaxed from 1.0 for initial samples
   medianWindowSize: 5,

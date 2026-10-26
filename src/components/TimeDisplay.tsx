@@ -17,7 +17,7 @@ export function TimeDisplay({ timeSeconds, isRunning }: TimeDisplayProps) {
           <div className={`text-6xl md:text-7xl font-digital font-bold tabular-nums ${
             isRunning ? 'text-primary digital-display-active' : 'text-muted-foreground digital-display'
           }`}>
-            {timeSeconds.toFixed(2)}
+            {timeSeconds.toFixed(isRunning ? 2 : 3)}
           </div>
           <div className="text-sm text-muted-foreground mt-2">segundos</div>
         </div>

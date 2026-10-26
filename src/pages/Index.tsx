@@ -37,6 +37,7 @@ const Index = () => {
     result,
     signalQuality,
     gpsValid,
+    launchWallTime,
     arm,
     reset,
     cancel,
@@ -71,17 +72,17 @@ const Index = () => {
     checkPermission();
   }, []);
 
-  // Update elapsed time when running
+  // Live timer: driven by the real launch instant, not by accumulated ticks.
   useEffect(() => {
-    if (state === "RUNNING") {
-      const interval = setInterval(() => {
-        setElapsedTime((prev) => prev + 0.05);
-      }, 50);
+    if (state === "RUNNING" && launchWallTime !== null) {
+      const tick = () => setElapsedTime(Math.max(0, (Date.now() - launchWallTime) / 1000));
+      tick();
+      const interval = setInterval(tick, 50);
       return () => clearInterval(interval);
     } else {
       setElapsedTime(0);
     }
-  }, [state]);
+  }, [state, launchWallTime]);
 
   const requestLocationPermission = async () => {
     if (Capacitor.isNativePlatform()) {
