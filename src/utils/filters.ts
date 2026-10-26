@@ -191,9 +191,9 @@ export class KalmanFilter {
     const dt = this.lastTime !== null ? (timestamp - this.lastTime) / 1000 : 0.1;
     this.lastTime = timestamp;
     
-    // Predict state forward
-    if (dt > 0 && dt < 1) { // Sanity check on dt
-      this.predict(dt);
+    // Predict state forward (clamp dt so a long GPS gap doesn't blow up the model)
+    if (dt > 0) {
+      this.predict(Math.min(dt, 2));
     }
     
     // Measurement noise (variance)

@@ -5,8 +5,21 @@ import { Capacitor } from "@capacitor/core";
 import { MeasurementState, LocationSample, MeasurementResult, DEFAULT_CONFIG } from "@/types/measurement";
 import { KalmanFilter } from "@/utils/filters";
 import { CsvLogger } from "@/utils/csvLogger";
-import { interpolateTargetCrossing, mpsToKmh } from "@/utils/interpolation";
+import { MeasurementEngine, EngineEvent } from "@/lib/measurementEngine";
+import { mpsToKmh } from "@/utils/interpolation";
 import { toast } from "@/hooks/use-toast";
+
+/** Minimal shape shared by Capacitor's Position and the browser's GeolocationPosition. */
+interface GpsPosition {
+  timestamp: number;
+  coords: {
+    speed: number | null;
+    accuracy: number;
+    speedAccuracy?: number | null;
+    latitude: number;
+    longitude: number;
+  };
+}
 
 // Helper to trigger haptics safely
 const triggerHaptics = async (style: ImpactStyle) => {
@@ -19,8 +32,13 @@ const triggerHaptics = async (style: ImpactStyle) => {
   }
 };
 
+// If no fix arrives for this long during a run, warn the driver.
+const GPS_WATCHDOG_MS = 3000;
+
 /**
- * Core hook for 0-100 km/h measurement logic
+ * Core hook for 0-100 km/h measurement logic.
+ * GPS lifecycle, toasts and haptics live here; the timing itself lives in
+ * MeasurementEngine so it can be unit tested.
  */
 export function useMeasurement(isManualMode = false) {
   const [state, setState] = useState<MeasurementState>("IDLE");
@@ -30,277 +48,217 @@ export function useMeasurement(isManualMode = false) {
   const [result, setResult] = useState<MeasurementResult | null>(null);
   const [signalQuality, setSignalQuality] = useState<"good" | "medium" | "poor">("good");
   const [gpsValid, setGpsValid] = useState(false);
+  // Wall-clock (Date.now based) instant of the launch, for the live timer.
+  const [launchWallTime, setLaunchWallTime] = useState<number | null>(null);
 
+  const stateRef = useRef<MeasurementState>("IDLE");
+  const engine = useRef(new MeasurementEngine(DEFAULT_CONFIG));
   const speedFilter = useRef(new KalmanFilter(0.5)); // Process noise = 0.5 m/s²
   const csvLogger = useRef(new CsvLogger());
   const watchId = useRef<string | number | null>(null); // string for Capacitor, number for browser
   const isNative = useRef(Capacitor.isNativePlatform());
-  
-  const startTimeRef = useRef<number>(0);
-  const zeroDetectedTimeRef = useRef<number>(0);
-  const lastValidSampleTimeRef = useRef<number>(0);
-  const previousSampleRef = useRef<LocationSample | null>(null);
-  const distanceAccumulatorRef = useRef<number>(0);
-  const speedPointsRef = useRef<Array<{ time: number; speed: number }>>([]);
-  const targetCrossedRef = useRef<boolean>(false);
-  
-  const qualityMetricsRef = useRef({ hAccSum: 0, sAccSum: 0, count: 0 });
+  const lastSampleWallTimeRef = useRef<number>(0);
+  const gapWarnedRef = useRef(false);
+  const qualityMetricsRef = useRef({ hAccSum: 0, count: 0 });
+
+  const changeState = useCallback((next: MeasurementState) => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
 
   // Check if sample meets quality thresholds
-  const isSampleValid = useCallback((sample: Partial<LocationSample>): boolean => {
-    if (sample.horizontalAccuracy === undefined || sample.horizontalAccuracy > DEFAULT_CONFIG.horizontalAccuracyThreshold) {
+  const isSampleValid = useCallback((horizontalAccuracy: number, speedAccuracy?: number): boolean => {
+    if (horizontalAccuracy === undefined || horizontalAccuracy > DEFAULT_CONFIG.horizontalAccuracyThreshold) {
       return false;
     }
-    if (sample.speedAccuracy !== undefined && sample.speedAccuracy > DEFAULT_CONFIG.speedAccuracyThreshold) {
+    if (speedAccuracy !== undefined && speedAccuracy > DEFAULT_CONFIG.speedAccuracyThreshold) {
       return false;
     }
     return true;
   }, []);
 
-  // Process incoming GPS sample
-  const processSample = useCallback((position: any) => {
-    const now = Date.now();
-    
-    // Mark GPS as connected (even if speed is null)
-    setGpsValid(true);
-    
-    // CRITICAL: Ignore samples with null speed for measurement processing
-    if (position.coords.speed === null || position.coords.speed === undefined) {
-      console.log("⚠️ GPS sample ignorada: speed null/undefined - aguardando leitura válida do GPS");
-      // Increment sample count to show GPS is active, even if speed is null
-      setSampleCount((prev) => prev + 1);
-      return;
-    }
-    
-    const rawSpeed = Math.max(0, position.coords.speed);
-    const speedAccuracy = (position.coords as any).speedAccuracy;
-    const filteredSpeed = speedFilter.current.filter(rawSpeed, now, speedAccuracy);
-
-    const sample: LocationSample = {
-      timestamp: now,
-      speed: rawSpeed,
-      speedFiltered: filteredSpeed,
-      horizontalAccuracy: position.coords.accuracy,
-      speedAccuracy: (position.coords as any).speedAccuracy, // Not standard but available on some platforms
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      isValid: isSampleValid({
-        horizontalAccuracy: position.coords.accuracy,
-        speedAccuracy: (position.coords as any).speedAccuracy,
-      }),
-    };
-
-    // Update quality metrics
-    if (sample.isValid) {
-      qualityMetricsRef.current.hAccSum += sample.horizontalAccuracy;
-      if (sample.speedAccuracy) {
-        qualityMetricsRef.current.sAccSum += sample.speedAccuracy;
+  // Stop GPS watching
+  const stopWatching = useCallback(async () => {
+    if (watchId.current !== null) {
+      const id = watchId.current;
+      watchId.current = null;
+      if (isNative.current) {
+        await Geolocation.clearWatch({ id: id as string });
+      } else {
+        navigator.geolocation.clearWatch(id as number);
       }
-      qualityMetricsRef.current.count++;
-
-      const avgHAcc = qualityMetricsRef.current.hAccSum / qualityMetricsRef.current.count;
-      setSignalQuality(
-        avgHAcc < 5 ? "good" : avgHAcc < 8 ? "medium" : "poor"
-      );
     }
+  }, []);
 
-    setCurrentSpeed(filteredSpeed);
-    setCurrentSpeedKmh(mpsToKmh(filteredSpeed));
-    setSampleCount((prev) => prev + 1);
-    csvLogger.current.addSample(sample, state);
-    lastValidSampleTimeRef.current = now;
+  const finishWithResult = useCallback(
+    (measurementResult: MeasurementResult) => {
+      setResult(measurementResult);
+      changeState("DONE");
+      stopWatching();
 
-    // State machine transitions
-    setState((currentState) => {
-      console.log(`🔄 processSample - Estado REAL: ${currentState}, Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
-      
-      if (currentState === "WAIT_ZERO") {
-        // Check if vehicle is at zero (removed sample.isValid requirement for better detection)
-        if (filteredSpeed < DEFAULT_CONFIG.zeroThreshold) {
-          if (zeroDetectedTimeRef.current === 0) {
-            zeroDetectedTimeRef.current = now;
-          } else if (now - zeroDetectedTimeRef.current >= DEFAULT_CONFIG.zeroHoldTime) {
-            // Zero confirmed for required duration
+      const finalTime = measurementResult.timeSeconds;
+      triggerHaptics(ImpactStyle.Heavy);
+      toast({
+        title: "🏁 Medição concluída!",
+        description: `100 km/h em ${finalTime.toFixed(2)} segundos`,
+        duration: 5000,
+      });
+
+      // Voice feedback using Web Speech API
+      try {
+        const utterance = new SpeechSynthesisUtterance(
+          `Cem quilômetros por hora em ${finalTime.toFixed(1)} segundos`
+        );
+        utterance.lang = "pt-BR";
+        speechSynthesis.speak(utterance);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn("Speech synthesis not available:", error);
+        }
+      }
+    },
+    [changeState, stopWatching]
+  );
+
+  const handleEngineEvents = useCallback(
+    (events: EngineEvent[], sample: LocationSample) => {
+      for (const event of events) {
+        switch (event.type) {
+          case "zero-confirmed":
+            changeState("RUNNING");
             toast({
               title: "✅ Veículo parado detectado",
               description: "Acelere para iniciar a medição!",
             });
             triggerHaptics(ImpactStyle.Medium);
-            return "RUNNING"; // Next sample will trigger start
-          }
-        } else {
-          // Reset zero detection if speed goes above threshold
-          zeroDetectedTimeRef.current = 0;
-        }
-      } else if (currentState === "RUNNING") {
-        // Start timer on first sample above threshold
-        if (startTimeRef.current === 0 && filteredSpeed > DEFAULT_CONFIG.zeroThreshold + DEFAULT_CONFIG.hysteresis) {
-          startTimeRef.current = now;
-          csvLogger.current.start(now);
-          distanceAccumulatorRef.current = 0;
-          speedPointsRef.current = []; // Reset speed points
-          targetCrossedRef.current = false; // Reset target crossed flag
-          console.log(`Timer started! Speed: ${filteredSpeed.toFixed(2)} m/s (${mpsToKmh(filteredSpeed).toFixed(1)} km/h)`);
-          toast({
-            title: "Cronômetro iniciado!",
-            description: "Medição em andamento...",
-          });
-        }
-        
-        if (startTimeRef.current === 0) {
-          console.log(`Waiting for speed > ${(DEFAULT_CONFIG.zeroThreshold + DEFAULT_CONFIG.hysteresis).toFixed(2)} m/s. Current: ${filteredSpeed.toFixed(2)} m/s`);
-        }
-
-        // Collect speed points for chart
-        if (startTimeRef.current > 0) {
-          const timeElapsed = (now - startTimeRef.current) / 1000; // seconds
-          speedPointsRef.current.push({
-            time: parseFloat(timeElapsed.toFixed(2)),
-            speed: parseFloat(mpsToKmh(filteredSpeed).toFixed(1)),
-          });
-        }
-
-        // Accumulate distance
-        if (previousSampleRef.current && startTimeRef.current > 0) {
-          const dt = (now - previousSampleRef.current.timestamp) / 1000; // seconds
-          distanceAccumulatorRef.current += filteredSpeed * dt;
-        }
-
-        // Check for target crossing
-        // Log detailed info for debugging
-        if (previousSampleRef.current) {
-          const prevSpeedKmh = mpsToKmh(previousSampleRef.current.speedFiltered).toFixed(1);
-          const currSpeedKmh = mpsToKmh(filteredSpeed).toFixed(1);
-          const targetKmh = mpsToKmh(DEFAULT_CONFIG.targetSpeedMps).toFixed(1);
-          console.log(`🔍 Checking target: prev=${previousSampleRef.current.speedFiltered.toFixed(2)} m/s (${prevSpeedKmh} km/h), current=${filteredSpeed.toFixed(2)} m/s (${currSpeedKmh} km/h), target=${DEFAULT_CONFIG.targetSpeedMps.toFixed(2)} m/s (${targetKmh} km/h)`);
-          console.log(`🔍 Condições: prev < target? ${previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps}, current >= target? ${filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps}, targetCrossed? ${targetCrossedRef.current}`);
-        }
-        
-        // Detect target crossing: first time we hit or exceed target speed
-        if (
-          startTimeRef.current > 0 &&
-          !targetCrossedRef.current &&
-          filteredSpeed >= DEFAULT_CONFIG.targetSpeedMps
-        ) {
-          targetCrossedRef.current = true; // Mark as crossed
-          console.log(`🎯 TARGET CRUZADO! Detectado em ${mpsToKmh(filteredSpeed).toFixed(1)} km/h`);
-          console.log(`📊 isValid: ${sample.isValid}, hAcc: ${sample.horizontalAccuracy.toFixed(1)}m, sAcc: ${sample.speedAccuracy?.toFixed(2) || 'N/A'}m/s`);
-          
-          toast({
-            title: "🏁 100 km/h atingido!",
-            description: "Medição completa!",
-          });
-          
-          // Interpolate exact crossing time if we have a previous sample
-          let tHit: number;
-          if (previousSampleRef.current && previousSampleRef.current.speedFiltered < DEFAULT_CONFIG.targetSpeedMps) {
-            // We have a valid crossing between two samples
-            tHit = interpolateTargetCrossing(
-              previousSampleRef.current.timestamp,
-              previousSampleRef.current.speedFiltered,
-              now,
-              filteredSpeed,
-              DEFAULT_CONFIG.targetSpeedMps
-            );
-          } else {
-            // First sample above target, use current time
-            tHit = now;
-          }
-
-          const finalTime = (tHit - startTimeRef.current) / 1000; // seconds
-
-          const avgHAcc = qualityMetricsRef.current.count > 0
-            ? qualityMetricsRef.current.hAccSum / qualityMetricsRef.current.count
-            : 0;
-          const avgSAcc = qualityMetricsRef.current.count > 0
-            ? qualityMetricsRef.current.sAccSum / qualityMetricsRef.current.count
-            : 0;
-
-          const measurementResult: MeasurementResult = {
-            timeSeconds: finalTime,
-            distanceMeters: distanceAccumulatorRef.current,
-            finalSpeed: filteredSpeed,
-            avgHorizontalAccuracy: avgHAcc,
-            avgSpeedAccuracy: avgSAcc,
-            sampleCount: qualityMetricsRef.current.count,
-            startTime: startTimeRef.current,
-            endTime: tHit,
-            speedPoints: speedPointsRef.current,
-          };
-
-          setResult(measurementResult);
-          
-          // Stop GPS watch to prevent further processing
-          stopWatching();
-
-          // Feedback
-          triggerHaptics(ImpactStyle.Heavy);
-          toast({
-            title: "🏁 Medição concluída!",
-            description: `100 km/h em ${finalTime.toFixed(2)} segundos`,
-            duration: 5000,
-          });
-
-          // Voice feedback using Web Speech API
-          try {
-            const utterance = new SpeechSynthesisUtterance(
-              `Cem quilômetros por hora em ${finalTime.toFixed(1)} segundos`
-            );
-            utterance.lang = "pt-BR";
-            speechSynthesis.speak(utterance);
-          } catch (error) {
-            if (import.meta.env.DEV) {
-              console.warn("Speech synthesis not available:", error);
+            break;
+          case "launch":
+          case "launch-refined": {
+            // Translate the GPS-clock launch instant into wall-clock time so the
+            // on-screen timer stays in sync regardless of GPS clock offset.
+            const gpsAge = sample.timestamp - event.launchTime;
+            setLaunchWallTime(Date.now() - gpsAge);
+            csvLogger.current.start(event.launchTime);
+            if (event.type === "launch") {
+              toast({
+                title: "Cronômetro iniciado!",
+                description: "Medição em andamento...",
+              });
             }
+            break;
           }
-
-          return "DONE";
-        }
-
-        // Check for sample gap timeout
-        if (startTimeRef.current > 0 && now - lastValidSampleTimeRef.current > DEFAULT_CONFIG.maxSampleGapMs) {
-          toast({
-            title: "⚠️ Medição abortada",
-            description: "Perda de sinal GPS durante medição",
-            variant: "destructive",
-          });
-          triggerHaptics(ImpactStyle.Heavy);
-          return "DONE";
+          case "signal-gap":
+            if (!gapWarnedRef.current) {
+              gapWarnedRef.current = true;
+              toast({
+                title: "⚠️ Sinal GPS irregular",
+                description: `Intervalo de ${(event.gapMs / 1000).toFixed(1)}s entre leituras. O resultado pode perder precisão.`,
+                variant: "destructive",
+              });
+            }
+            break;
+          case "target":
+            finishWithResult(event.result);
+            break;
         }
       }
+    },
+    [changeState, finishWithResult]
+  );
 
-      return currentState;
-    });
+  // Process incoming GPS sample
+  const processSample = useCallback(
+    (position: GpsPosition) => {
+      // Ignore late callbacks after the watch was stopped (e.g. right after DONE).
+      if (watchId.current === null) return;
 
-    previousSampleRef.current = sample;
-  }, [state, isSampleValid]);
+      lastSampleWallTimeRef.current = Date.now();
+
+      // Mark GPS as connected (even if speed is null)
+      setGpsValid(true);
+
+      // Ignore samples with null speed: the fix has no Doppler speed yet.
+      if (position.coords.speed === null || position.coords.speed === undefined) {
+        setSampleCount((prev) => prev + 1);
+        return;
+      }
+
+      // Use the fix time, not the callback time: delivery jitter must not leak into the result.
+      const timestamp =
+        typeof position.timestamp === "number" && Number.isFinite(position.timestamp) && position.timestamp > 0
+          ? position.timestamp
+          : Date.now();
+
+      const rawSpeed = Math.max(0, position.coords.speed);
+      const speedAccuracy =
+        position.coords.speedAccuracy === null || position.coords.speedAccuracy === undefined
+          ? undefined
+          : position.coords.speedAccuracy;
+      const filteredSpeed = speedFilter.current.filter(rawSpeed, timestamp, speedAccuracy);
+
+      const sample: LocationSample = {
+        timestamp,
+        speed: rawSpeed,
+        speedFiltered: filteredSpeed,
+        horizontalAccuracy: position.coords.accuracy,
+        speedAccuracy,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        isValid: isSampleValid(position.coords.accuracy, speedAccuracy),
+      };
+
+      // Update quality metrics for the signal indicator
+      if (sample.isValid) {
+        qualityMetricsRef.current.hAccSum += sample.horizontalAccuracy;
+        qualityMetricsRef.current.count++;
+        const avgHAcc = qualityMetricsRef.current.hAccSum / qualityMetricsRef.current.count;
+        setSignalQuality(avgHAcc < 5 ? "good" : avgHAcc < 8 ? "medium" : "poor");
+      }
+
+      setCurrentSpeed(filteredSpeed);
+      setCurrentSpeedKmh(mpsToKmh(filteredSpeed));
+      setSampleCount((prev) => prev + 1);
+      csvLogger.current.addSample(sample, stateRef.current);
+
+      const currentState = stateRef.current;
+      if (currentState !== "WAIT_ZERO" && currentState !== "RUNNING") {
+        return;
+      }
+
+      const events = engine.current.processSample(sample);
+      if (events.length > 0) {
+        handleEngineEvents(events, sample);
+      }
+    },
+    [isSampleValid, handleEngineEvents]
+  );
+
+  // Keep the GPS callback pointing at the latest processSample without restarting the watch.
+  const processSampleRef = useRef(processSample);
+  useEffect(() => {
+    processSampleRef.current = processSample;
+  }, [processSample]);
 
   // Start GPS watching
   const startWatching = useCallback(async () => {
-    console.log("🚀 startWatching() chamado");
     try {
       if (isNative.current) {
         // Use Capacitor Geolocation for native apps
         const permission = await Geolocation.checkPermissions();
-        console.log("📍 GPS permission status:", permission.location);
-        
+
         if (permission.location !== "granted") {
-          console.log("⚠️ Solicitando permissão GPS...");
           const request = await Geolocation.requestPermissions();
-          console.log("📍 Permissão GPS após request:", request.location);
-          
+
           if (request.location !== "granted") {
-            console.log("❌ Permissão GPS negada");
             toast({
               title: "Permissão necessária",
               description: "Acesso à localização é necessário para medição GPS",
               variant: "destructive",
             });
-            return;
+            return false;
           }
         }
 
-        console.log("✅ Iniciando GPS watch (Capacitor) com alta precisão...");
         watchId.current = await Geolocation.watchPosition(
           {
             enableHighAccuracy: true,
@@ -308,30 +266,18 @@ export function useMeasurement(isManualMode = false) {
             maximumAge: 0,
           },
           (position) => {
-            console.log("📡 GPS sample recebido:", {
-              speed: position?.coords?.speed,
-              accuracy: position?.coords?.accuracy,
-              timestamp: new Date().toISOString()
-            });
-            if (position) processSample(position);
+            if (position) processSampleRef.current(position);
           }
         );
-        console.log("✅ GPS watch iniciado com ID:", watchId.current);
       } else {
         // Use browser Geolocation API
         if (!navigator.geolocation) {
           throw new Error("Geolocation not supported by browser");
         }
 
-        console.log("✅ Iniciando GPS watch (Browser) com alta precisão...");
         watchId.current = navigator.geolocation.watchPosition(
           (position) => {
-            console.log("📡 GPS sample recebido:", {
-              speed: position?.coords?.speed,
-              accuracy: position?.coords?.accuracy,
-              timestamp: new Date().toISOString()
-            });
-            processSample(position);
+            processSampleRef.current(position);
           },
           (error) => {
             console.error("❌ Browser GPS error:", error);
@@ -347,8 +293,8 @@ export function useMeasurement(isManualMode = false) {
             maximumAge: 0,
           }
         );
-        console.log("✅ GPS watch iniciado (Browser) com ID:", watchId.current);
       }
+      return true;
     } catch (error) {
       console.error("❌ Error starting GPS:", error);
       toast({
@@ -356,135 +302,101 @@ export function useMeasurement(isManualMode = false) {
         description: "Não foi possível iniciar o GPS",
         variant: "destructive",
       });
-    }
-  }, [processSample]);
-
-  // Stop GPS watching
-  const stopWatching = useCallback(async () => {
-    if (watchId.current !== null) {
-      if (isNative.current) {
-        await Geolocation.clearWatch({ id: watchId.current as string });
-      } else {
-        navigator.geolocation.clearWatch(watchId.current as number);
-      }
-      watchId.current = null;
+      return false;
     }
   }, []);
 
   // Arm measurement
   const arm = useCallback(async () => {
-    console.log("🎯 ARM iniciado - Modo:", isManualMode ? "MANUAL" : "AUTOMÁTICO");
     csvLogger.current.reset();
     speedFilter.current.reset();
-    startTimeRef.current = 0;
-    zeroDetectedTimeRef.current = 0;
-    previousSampleRef.current = null;
-    distanceAccumulatorRef.current = 0;
-    speedPointsRef.current = [];
-    targetCrossedRef.current = false;
-    qualityMetricsRef.current = { hAccSum: 0, sAccSum: 0, count: 0 };
+    qualityMetricsRef.current = { hAccSum: 0, count: 0 };
+    gapWarnedRef.current = false;
+    lastSampleWallTimeRef.current = 0;
     setSampleCount(0);
     setResult(null);
+    setLaunchWallTime(null);
 
-    setState("ARMED");
-    console.log("📊 Estado mudado para ARMED");
-    
-    await startWatching();
-    
+    changeState("ARMED");
+
+    const started = await startWatching();
+    if (!started) {
+      changeState("IDLE");
+      return;
+    }
+
     triggerHaptics(ImpactStyle.Medium);
 
     if (isManualMode) {
-      // Modo manual: inicia medição diretamente
-      console.log("📊 Modo MANUAL - Iniciando medição diretamente");
+      // Modo manual: o cronômetro dispara na primeira movimentação
+      engine.current.armManual();
+      changeState("RUNNING");
       toast({
         title: "Medição iniciada (Manual)",
         description: "Acelere para registrar 0-100 km/h",
       });
-      
-      setTimeout(() => {
-        console.log("📊 Estado mudando para RUNNING (modo manual)");
-        setState("RUNNING");
-        csvLogger.current.start(Date.now());
-      }, 500);
     } else {
       // Modo automático: aguarda detectar zero
+      engine.current.armAuto();
+      changeState("WAIT_ZERO");
       toast({
         title: "Sistema armado",
         description: "Aguardando veículo parado...",
       });
-
-      // Transition to WAIT_ZERO
-      setTimeout(() => {
-        console.log("📊 Estado mudando para WAIT_ZERO");
-        setState("WAIT_ZERO");
-      }, 500);
     }
-  }, [startWatching, isManualMode]);
+  }, [startWatching, isManualMode, changeState]);
 
-  // Manual zero confirmation - requires valid GPS reading
+  // Manual zero confirmation - requires a GPS reading first
   const confirmZero = useCallback(() => {
-    setState((currentState) => {
-      console.log("🚦 confirmZero chamado, estado atual:", currentState);
-      if (currentState === "WAIT_ZERO") {
-        // Validate that we have at least one valid GPS sample
-        if (!previousSampleRef.current || previousSampleRef.current.speed === 0) {
-          console.log("⚠️ Aguardando leitura válida do GPS antes de confirmar zero");
-          toast({
-            title: "⚠️ Aguardando GPS",
-            description: "Aguarde até receber uma leitura válida do GPS",
-            variant: "destructive",
-          });
-          return currentState;
-        }
-        
-        // Reset filter and measurement state
-        speedFilter.current.reset();
-        startTimeRef.current = 0;
-        distanceAccumulatorRef.current = 0;
-        
-        console.log("✅ Manual zero confirmed com GPS válido, ready to measure");
-        console.log("📊 Estado mudando para RUNNING");
-        
-        triggerHaptics(ImpactStyle.Medium);
-        toast({
-          title: "Medição iniciada",
-          description: "Acelere para registrar 0-100 km/h",
-        });
-        
-        return "RUNNING";
-      } else {
-        console.log(`⚠️ confirmZero ignorado - estado atual é ${currentState}, esperado WAIT_ZERO`);
-        return currentState;
-      }
-    });
-  }, []);
+    if (stateRef.current !== "WAIT_ZERO") return;
+
+    if (lastSampleWallTimeRef.current === 0) {
+      toast({
+        title: "⚠️ Aguardando GPS",
+        description: "Aguarde até receber uma leitura válida do GPS",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (engine.current.confirmZero()) {
+      changeState("RUNNING");
+      triggerHaptics(ImpactStyle.Medium);
+      toast({
+        title: "Medição iniciada",
+        description: "Acelere para registrar 0-100 km/h",
+      });
+    }
+  }, [changeState]);
 
   // Cancel measurement
   const cancel = useCallback(async () => {
     await stopWatching();
-    setState("IDLE");
+    changeState("IDLE");
     setCurrentSpeed(0);
     setCurrentSpeedKmh(0);
     setSampleCount(0);
+    setLaunchWallTime(null);
     csvLogger.current.reset();
     triggerHaptics(ImpactStyle.Medium);
     toast({
       title: "Medição cancelada",
       description: "Sistema retornando ao estado inicial",
     });
-  }, [stopWatching]);
+  }, [stopWatching, changeState]);
 
   // Reset measurement
   const reset = useCallback(async () => {
     await stopWatching();
-    setState("IDLE");
+    changeState("IDLE");
     setCurrentSpeed(0);
     setCurrentSpeedKmh(0);
     setSampleCount(0);
     setResult(null);
+    setLaunchWallTime(null);
     csvLogger.current.reset();
     triggerHaptics(ImpactStyle.Light);
-  }, [stopWatching]);
+  }, [stopWatching, changeState]);
 
   // Export CSV
   const exportCsv = useCallback(async () => {
@@ -494,7 +406,7 @@ export function useMeasurement(isManualMode = false) {
         title: "CSV exportado",
         description: "Arquivo salvo com sucesso",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao exportar",
         description: "Não foi possível exportar o CSV",
@@ -503,6 +415,22 @@ export function useMeasurement(isManualMode = false) {
     }
   }, []);
 
+  // Watchdog: warn if the GPS goes quiet during a run.
+  useEffect(() => {
+    if (state !== "RUNNING") return;
+    const interval = setInterval(() => {
+      const last = lastSampleWallTimeRef.current;
+      if (last > 0 && Date.now() - last > GPS_WATCHDOG_MS && !gapWarnedRef.current) {
+        gapWarnedRef.current = true;
+        toast({
+          title: "⚠️ Sem leituras do GPS",
+          description: "Nenhuma posição recebida nos últimos segundos. Verifique o sinal.",
+          variant: "destructive",
+        });
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -519,6 +447,7 @@ export function useMeasurement(isManualMode = false) {
     result,
     signalQuality,
     gpsValid,
+    launchWallTime,
     arm,
     reset,
     cancel,

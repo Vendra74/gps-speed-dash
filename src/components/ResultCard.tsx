@@ -22,7 +22,7 @@ export function ResultCard({ result }: ResultCardProps) {
             Tempo 0-100
           </div>
           <div className="text-3xl font-bold text-primary">
-            {result.timeSeconds.toFixed(2)}s
+            {result.timeSeconds.toFixed(3)}s
           </div>
         </div>
 
@@ -57,6 +57,9 @@ export function ResultCard({ result }: ResultCardProps) {
           <div>Precisão Horizontal: {result.avgHorizontalAccuracy.toFixed(2)} m</div>
           {result.avgSpeedAccuracy > 0 && (
             <div>Precisão Velocidade: {result.avgSpeedAccuracy.toFixed(2)} m/s</div>
+          )}
+          {result.maxSampleGapMs > 0 && (
+            <div>Maior intervalo entre leituras GPS: {(result.maxSampleGapMs / 1000).toFixed(2)} s</div>
           )}
         </div>
       </div>
